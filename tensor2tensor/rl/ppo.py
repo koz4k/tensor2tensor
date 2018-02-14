@@ -85,14 +85,15 @@ def define_ppo_epoch(memory, policy_factory, config):
   value = tf.stop_gradient(value)
   old_pdf = tf.stop_gradient(old_pdf)
 
+  add_lists_elementwise = lambda l1, l2: [x + y for x, y in zip(l1, l2)]
   ppo_step_rets = tf.scan(
-      lambda _1, _2: define_ppo_step(observation, action, reward, done, value,
-                                     old_pdf, policy_factory, config),
+      lambda a, _: add_lists_elementwise(a, define_ppo_step(observation, action, reward, done, value,
+                                         old_pdf, policy_factory, config)),
       tf.range(config.optimization_epochs),
       [0., 0., 0., 0., 0., 0.],
       parallel_iterations=1)
 
-  ppo_summaries = [tf.reduce_mean(ret) for ret in ppo_step_rets]
+  ppo_summaries = [tf.reduce_mean(ret)/config.optimization_epochs for ret in ppo_step_rets]
   summaries_names = ["policy_loss", "value_loss", "entropy_loss",
                      "policy_gradient", "value_gradient", "entropy_gradient"]
 
