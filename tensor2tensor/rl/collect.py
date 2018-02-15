@@ -18,9 +18,10 @@
 import tensorflow as tf
 
 
-def define_collect(policy_factory, batch_env, hparams, eval_phase):
+def define_collect(policy_factory, batch_env, hparams, eval_phase, sample_during_eval=False):
   """Collect trajectories."""
   eval_phase = tf.convert_to_tensor(eval_phase)
+  sample_during_eval = tf.convert_to_tensor(sample_during_eval)
   memory_shape = [hparams.epoch_length] + [batch_env.observ.shape.as_list()[0]]
   memories_shapes_and_types = [
       # observation
@@ -57,7 +58,7 @@ def define_collect(policy_factory, batch_env, hparams, eval_phase):
       obs_copy = batch_env.observ + 0
       actor_critic = policy_factory(tf.expand_dims(obs_copy, 0))
       policy = actor_critic.policy
-      action = tf.cond(eval_phase,
+      action = tf.cond(tf.logical_and(eval_phase, tf.logical_not(sample_during_eval)),
                        policy.mode,
                        policy.sample)
       postprocessed_action = actor_critic.action_postprocessing(action)

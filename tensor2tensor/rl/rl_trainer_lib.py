@@ -69,7 +69,9 @@ def define_train(hparams, environment_spec, event_dir):
       policy_factory,
       utils.define_batch_env(wrapped_eval_env_lambda, hparams.num_eval_agents,
                              xvfb=hparams.video_during_eval),
-      hparams, eval_phase=True)
+      hparams,
+      eval_phase=True,
+      sample_during_eval=hparams.sample_during_eval)
   return summary, eval_summary
 
 
@@ -77,6 +79,9 @@ def train(hparams, environment_spec, event_dir=None):
   if environment_spec == "stacked_pong":
     environment_spec = lambda: atari_wrappers.wrap_atari(
       gym.make("PongNoFrameskip-v4"), warp=False, frame_skip=4, frame_stack=False)
+  if environment_spec == "stacked_breakout":
+    environment_spec = lambda: atari_wrappers.wrap_atari(gym.make("BreakoutNoFrameskip-v4"),
+      warp=False, frame_skip=4, frame_stack=False)
   train_summary_op, eval_summary_op = define_train(hparams, environment_spec,
                                                    event_dir)
 

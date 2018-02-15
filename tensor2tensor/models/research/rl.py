@@ -49,6 +49,7 @@ def ppo_base_v1():
   hparams.add_hparam("eval_every_epochs", 10)
   hparams.add_hparam("num_eval_agents", 3)
   hparams.add_hparam("video_during_eval", True)
+  hparams.add_hparam("sample_during_eval", False)
   return hparams
 
 
@@ -82,6 +83,13 @@ def atari_base():
   hparams.network = feed_forward_cnn_small_categorical_fun
   return hparams
 
+@registry.register_hparams
+def atari_fire_base():
+  hparams = atari_base()
+  hparams.num_agents = 7
+  hparams.epoch_length = 150
+  hparams.sample_during_eval = True
+  return hparams
 
 NetworkOutput = collections.namedtuple(
     "NetworkOutput", "policy, value, action_postprocessing")
