@@ -27,6 +27,7 @@ from tensor2tensor.utils import registry
 
 import tensorflow as tf
 
+import random
 
 @registry.register_hparams
 def ppo_base_v1():
@@ -177,4 +178,4 @@ def feed_forward_cnn_small_categorical_fun(action_space, config, observations):
     value = tf.contrib.layers.fully_connected(x, 1, activation_fn=None)[..., 0]
     policy = tf.contrib.distributions.Categorical(logits=logits)
 
-  return NetworkOutput(policy, value, lambda a: a)
+  return NetworkOutput(policy, value, lambda a: a if random.random() < 0.95 else 1)
