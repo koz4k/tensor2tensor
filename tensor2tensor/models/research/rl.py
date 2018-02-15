@@ -27,6 +27,7 @@ from tensor2tensor.utils import registry
 
 import tensorflow as tf
 
+import random
 
 @registry.register_hparams
 def ppo_base_v1():
@@ -86,9 +87,10 @@ def atari_base():
 @registry.register_hparams
 def atari_fire_base():
   hparams = atari_base()
-  hparams.num_agents = 7
-  hparams.epoch_length = 150
-  hparams.sample_during_eval = True
+  hparams.num_agents = 30
+  hparams.epoch_length = 200
+  hparams.optimization_epochs = 15
+  #hparams.sample_during_eval = True
   return hparams
 
 NetworkOutput = collections.namedtuple(
@@ -177,4 +179,4 @@ def feed_forward_cnn_small_categorical_fun(action_space, config, observations):
     value = tf.contrib.layers.fully_connected(x, 1, activation_fn=None)[..., 0]
     policy = tf.contrib.distributions.Categorical(logits=logits)
 
-  return NetworkOutput(policy, value, lambda a: a)
+  return NetworkOutput(policy, value, lambda a: a if random.random() < 0.95 else 1)
