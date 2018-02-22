@@ -29,8 +29,8 @@ def get_optimiser(config):
   return config.optimizer(**config.optimizer_config)
 
 
-def define_ppo_step(observation, action, reward, done, value, old_pdf,
-                    policy_factory, config):
+def define_ppo_step(input, policy_factory, optimizer, config):
+  observation, action, discounted_reward, advantage_normalized, old_pdf = input
 
   new_policy_dist, new_value, _ = policy_factory(observation)
   new_pdf = new_policy_dist.prob(action)
@@ -39,26 +39,16 @@ def define_ppo_step(observation, action, reward, done, value, old_pdf,
   clipped_ratio = tf.clip_by_value(ratio, 1 - config.clipping_coef,
                                    1 + config.clipping_coef)
 
-  advantage = calculate_generalized_advantage_estimator(
-      reward, value, done, config.gae_gamma, config.gae_lambda)
-
-  advantage_mean, advantage_variance = tf.nn.moments(advantage, axes=[0, 1],
-                                                     keep_dims=True)
-  advantage_normalized = tf.stop_gradient(
-      (advantage - advantage_mean)/(tf.sqrt(advantage_variance) + 1e-8))
-
   surrogate_objective = tf.minimum(clipped_ratio * advantage_normalized,
                                    ratio * advantage_normalized)
   policy_loss = -tf.reduce_mean(surrogate_objective)
 
-  value_error = calculate_generalized_advantage_estimator(
-            reward, new_value, done, config.gae_gamma, config.gae_lambda)
+  value_error = new_value - discounted_reward
   value_loss = config.value_loss_coef * tf.reduce_mean(value_error ** 2)
 
   entropy = new_policy_dist.entropy()
   entropy_loss = -config.entropy_loss_coef * tf.reduce_mean(entropy)
 
-  optimizer = get_optimiser(config)
   losses = [policy_loss, value_loss, entropy_loss]
 
   gradients = [list(zip(*optimizer.compute_gradients(loss))) for loss in losses]
@@ -88,13 +78,34 @@ def define_ppo_epoch(memory, policy_factory, config):
   value = tf.stop_gradient(value)
   old_pdf = tf.stop_gradient(old_pdf)
 
+  advantage = calculate_generalized_advantage_estimator(
+      reward, value, done, config.gae_gamma, config.gae_lambda)
+
+  discounted_reward =  tf.stop_gradient(advantage + value)
+
+  advantage_mean, advantage_variance = tf.nn.moments(advantage, axes=[0, 1],
+                                                     keep_dims=True)
+  advantage_normalized = tf.stop_gradient(
+      (advantage - advantage_mean)/(tf.sqrt(advantage_variance) + 1e-8))
+
+
   add_lists_elementwise = lambda l1, l2: [x + y for x, y in zip(l1, l2)]
-  ppo_step_rets = tf.scan(
-      lambda a, _: add_lists_elementwise(a, define_ppo_step(observation, action, reward, done, value,
-                                         old_pdf, policy_factory, config)),
-      tf.range(config.optimization_epochs),
-      [0., 0., 0., 0., 0., 0.],
-      parallel_iterations=1)
+
+  number_of_batches = config.epoch_length * config.optimization_epochs / config.optimization_batch_size
+
+  dataset = tf.data.Dataset.from_tensor_slices((observation, action, discounted_reward, advantage_normalized, old_pdf))
+  dataset = dataset.shuffle(buffer_size=config.epoch_length, reshuffle_each_iteration=True)
+  dataset = dataset.repeat(config.optimization_epochs)
+  dataset = dataset.batch(config.optimization_batch_size)
+  iterator = dataset.make_initializable_iterator()
+  optimizer = get_optimiser(config)
+
+  with tf.control_dependencies([iterator.initializer]):
+    ppo_step_rets = tf.scan(
+        lambda a, i: add_lists_elementwise(a, define_ppo_step(iterator.get_next(), policy_factory, optimizer, config)),
+        tf.range(number_of_batches),
+        [0., 0., 0., 0., 0., 0.],
+        parallel_iterations=1)
 
   ppo_summaries = [tf.reduce_mean(ret)/config.optimization_epochs for ret in ppo_step_rets]
   summaries_names = ["policy_loss", "value_loss", "entropy_loss",
