@@ -24,9 +24,9 @@ import tensorflow as tf
 def get_optimiser(config):
 
   if config.optimizer=='Adam':
-    return tf.train.AdamOptimizer(config.learning_rate)
+    return tf.train.AdamOptimizer(**config.optimizer_config)
 
-  return config.optimizer(config.learning_rate)
+  return config.optimizer(**config.optimizer_config)
 
 
 def define_ppo_step(observation, action, reward, done, value, old_pdf,
