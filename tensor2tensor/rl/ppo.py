@@ -68,6 +68,9 @@ def define_ppo_step(observation, action, reward, done, value, old_pdf,
   gradients_flat = sum([gradient[0] for gradient in gradients], ())
   gradients_variables_flat = sum([gradient[1] for gradient in gradients], ())
 
+  if config.max_gradients_norm:
+    gradients_flat, _ = tf.clip_by_global_norm(gradients_flat, config.max_gradients_norm)
+
   optimize_op = optimizer.apply_gradients(zip(gradients_flat, gradients_variables_flat))
 
   with tf.control_dependencies([optimize_op]):
