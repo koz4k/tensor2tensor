@@ -74,6 +74,8 @@ def define_ppo_epoch(memory, policy_factory, config):
   observation = tf.stop_gradient(observation)
   action = tf.stop_gradient(action)
   reward = tf.stop_gradient(reward)
+  if hasattr(config, "rewards_preprocessing_fun"):
+    reward = config.rewards_preprocessing_fun(reward)
   done = tf.stop_gradient(done)
   value = tf.stop_gradient(value)
   old_pdf = tf.stop_gradient(old_pdf)
