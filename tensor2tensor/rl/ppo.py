@@ -28,12 +28,21 @@ def get_optimiser(config):
 
   return config.optimizer(**config.optimizer_config)
 
+def batch_flatten(t):
+  return tf.reshape(t, [tf.shape(t)[0] * tf.shape(t)[1]] + t.shape.as_list()[2:])
 
 def define_ppo_step(input, policy_factory, optimizer, config):
   observation, action, discounted_reward, advantage_normalized, old_pdf = input
 
-  new_policy_dist, new_value, _ = policy_factory(observation)
-  new_pdf = new_policy_dist.prob(action)
+  # new_policy_dist, new_value, _ = policy_factory(observation)
+  _new_policy_dist, _new_value, _ = policy_factory(tf.expand_dims(observation, 0))
+  _new_pdf = _new_policy_dist.prob(tf.expand_dims(action,0))
+  _entropy = _new_policy_dist.entropy()
+
+  new_pdf = batch_flatten(_new_pdf)
+  new_value = batch_flatten(_new_value)
+  entropy = batch_flatten(_entropy)
+
 
   ratio = new_pdf/old_pdf
   clipped_ratio = tf.clip_by_value(ratio, 1 - config.clipping_coef,
@@ -46,7 +55,7 @@ def define_ppo_step(input, policy_factory, optimizer, config):
   value_error = new_value - discounted_reward
   value_loss = config.value_loss_coef * tf.reduce_mean(value_error ** 2)
 
-  entropy = new_policy_dist.entropy()
+  # entropy = new_policy_dist.entropy()
   entropy_loss = -config.entropy_loss_coef * tf.reduce_mean(entropy)
 
   losses = [policy_loss, value_loss, entropy_loss]
@@ -94,8 +103,10 @@ def define_ppo_epoch(memory, policy_factory, config):
   add_lists_elementwise = lambda l1, l2: [x + y for x, y in zip(l1, l2)]
 
   number_of_batches = config.epoch_length * config.optimization_epochs / config.optimization_batch_size
+  full_batch = [observation, action, discounted_reward, advantage_normalized, old_pdf]
+  full_batch_flatten = tuple([batch_flatten(o) for o in full_batch])
 
-  dataset = tf.data.Dataset.from_tensor_slices((observation, action, discounted_reward, advantage_normalized, old_pdf))
+  dataset = tf.data.Dataset.from_tensor_slices(full_batch_flatten)
   dataset = dataset.shuffle(buffer_size=config.epoch_length, reshuffle_each_iteration=True)
   dataset = dataset.repeat(config.optimization_epochs)
   dataset = dataset.batch(config.optimization_batch_size)
