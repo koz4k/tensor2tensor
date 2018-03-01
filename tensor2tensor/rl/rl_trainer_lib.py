@@ -18,10 +18,10 @@
 from __future__ import absolute_import
 
 import functools
-import os
 
 # Dependency imports
 
+import os
 import gym
 
 
@@ -29,11 +29,13 @@ from tensor2tensor import models  # pylint: disable=unused-import
 from tensor2tensor.models.research import rl  # pylint: disable=unused-import
 from tensor2tensor.rl import collect
 from tensor2tensor.rl import ppo
-from tensor2tensor.rl.envs import atari_wrappers
 from tensor2tensor.rl.envs import utils
 
+from tensorflow.contrib import tpu
+from tensorflow.contrib.cluster_resolver import TPUClusterResolver
 import tensorflow as tf
 
+tf.flags.DEFINE_bool('use_tpu', False, 'Do not use TPUs, rather use plain CPUs')
 
 def define_train(hparams, environment_spec, event_dir):
   """Define the training setup."""
@@ -71,25 +73,24 @@ def define_train(hparams, environment_spec, event_dir):
         utils.define_batch_env(wrapped_eval_env_lambda, hparams.num_eval_agents,
                                xvfb=hparams.video_during_eval),
         hparams, eval_phase=True)
-  return summary, eval_summary, policy_factory
+  return summary, eval_summary
 
 
 def train(hparams, environment_spec, event_dir=None):
   """Train."""
-  if environment_spec == "stacked_pong":
-    environment_spec = lambda: atari_wrappers.wrap_atari(
-      gym.make("PongNoFrameskip-v4"), warp=False, frame_skip=4, frame_stack=False)
-  train_summary_op, eval_summary_op, _ = define_train(hparams, environment_spec,
-                                                      event_dir)
+  train_summary_op, eval_summary_op = define_train(hparams, environment_spec,
+                                                   event_dir)
+
   if event_dir:
     summary_writer = tf.summary.FileWriter(
         event_dir, graph=tf.get_default_graph(), flush_secs=60)
-    model_saver = tf.train.Saver()
   else:
     summary_writer = None
-    model_saver = None
 
-  with tf.Session() as sess:
+  tpu_grpc_url = TPUClusterResolver(
+              tpu_names=[os.environ['TPU_NAME']]).get_master()
+  with tf.Session(tpu_grpc_url) as sess:
+    sess.run(tpu.initialize_system())  
     sess.run(tf.global_variables_initializer())
     for epoch_index in range(hparams.epochs_num):
       summary = sess.run(train_summary_op)
@@ -100,5 +101,3 @@ def train(hparams, environment_spec, event_dir=None):
         summary = sess.run(eval_summary_op)
         if summary_writer:
           summary_writer.add_summary(summary, epoch_index)
-      if model_saver and hparams.save_models_every_epochs and epoch_index % hparams.save_models_every_epochs == 0:
-        model_saver.save(sess, os.path.join(event_dir, "model{}.ckpt".format(epoch_index)))
