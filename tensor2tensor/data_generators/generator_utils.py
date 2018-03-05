@@ -147,8 +147,9 @@ def generate_files(generator, output_filenames, max_cases=None):
   if outputs_exist(output_filenames):
     tf.logging.info("Skipping generator because outputs files exist")
     return
+  tmp_filenames = [fname + ".incomplete" for fname in output_filenames]
   num_shards = len(output_filenames)
-  writers = [tf.python_io.TFRecordWriter(fname) for fname in output_filenames]
+  writers = [tf.python_io.TFRecordWriter(fname) for fname in tmp_filenames]
   counter, shard = 0, 0
   for case in generator:
     if case is None:
@@ -164,6 +165,9 @@ def generate_files(generator, output_filenames, max_cases=None):
 
   for writer in writers:
     writer.close()
+
+  for tmp_name, final_name in zip(tmp_filenames, output_filenames):
+    tf.gfile.Rename(tmp_name, final_name)
 
   tf.logging.info("Generated %s Examples", counter)
 
@@ -489,14 +493,14 @@ class SequencePacker(object):
     self._spacing = spacing
     self._ids = first_sequence[:]
     self._segmentation = [1] * len(first_sequence)
-    self._position = range(len(first_sequence))
+    self._position = list(range(len(first_sequence)))
 
   def add(self, ids):
     padding = [0] * self._spacing
     self._ids.extend(padding + ids)
     next_segment_num = self._segmentation[-1] + 1 if self._segmentation else 1
     self._segmentation.extend(padding + [next_segment_num] * len(ids))
-    self._position.extend(padding + range(len(ids)))
+    self._position.extend(padding + list(range(len(ids))))
 
   def can_fit(self, ids, packed_length):
     return len(self._ids) + self._spacing + len(ids) <= packed_length
