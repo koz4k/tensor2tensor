@@ -72,8 +72,10 @@ class GymDiscreteProblem(problem.Problem):
     env_hparams = HParams(in_graph_wrappers=in_graph_wrappers,
                           simulated_environment=self.simulated_environment)
 
-    generator_batch_env = \
-      batch_env_factory(self.environment_spec, env_hparams, num_agents=1, xvfb=False)
+    #for the case of simulated environment we need to ensure not repeating
+    with tf.variable_scope("", reuse=tf.AUTO_REUSE):
+      generator_batch_env = \
+        batch_env_factory(self.environment_spec, env_hparams, num_agents=1, xvfb=False)
 
 
     with tf.variable_scope("collect_datagen", reuse=tf.AUTO_REUSE):
