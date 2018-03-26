@@ -34,7 +34,7 @@ from tensor2tensor.models.research import rl
 from tensor2tensor.utils import registry
 from moviepy.editor import *
 from tensor2tensor.rl.envs.utils import batch_env_factory
-from tensor2tensor.rl.envs.tf_atari_wrappers import MemoryWrapper
+from tensor2tensor.rl.envs.tf_atari_wrappers import MemoryWrapper, TimeLimitWrapper
 from tensor2tensor.rl.envs.tf_atari_wrappers import MaxAndSkipWrapper
 from tensor2tensor.rl.envs.tf_atari_wrappers import PongT2TGeneratorHackWrapper
 from tensor2tensor.rl import collect
@@ -238,6 +238,8 @@ class GymSimulatedDiscreteProblem(GymDiscreteProblem):
 
   def __init__(self, *args, **kwargs):
     super(GymSimulatedDiscreteProblem, self).__init__(*args, **kwargs)
+    #TODO: pull it outside
+    self.in_graph_wrappers = [(TimeLimitWrapper, {"timelimit": 150}), (MaxAndSkipWrapper, {"skip": 4})]
     self.simulated_environment = True
 
   def restore_networks(self, sess):

@@ -123,10 +123,12 @@ class SimulatedBatchEnv(InGraphBatchEnv):
     Returns:
       Batch tensor of the new observations.
     """
+    #TODO: make proper starting points
     observ = tf.gather(self._observ, indices)
-    observ = tf.check_numerics(observ, 'observ')
+    observ = 0.0*tf.check_numerics(observ, 'observ')
     with tf.control_dependencies([
-        tf.scatter_update(self._observ, indices, observ)]):
+        tf.scatter_update(self._observ, indices, observ),
+        tf.scatter_update(self._self._prev_observ, observ)]):
       return tf.identity(observ)
 
   @property
