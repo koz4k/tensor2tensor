@@ -128,7 +128,7 @@ class SimulatedBatchEnv(InGraphBatchEnv):
     observ = 0.0*tf.check_numerics(observ, 'observ')
     with tf.control_dependencies([
         tf.scatter_update(self._observ, indices, observ),
-        tf.scatter_update(self._self._prev_observ, observ)]):
+        tf.scatter_update(self._prev_observ, observ)]):
       return tf.identity(observ)
 
   @property
