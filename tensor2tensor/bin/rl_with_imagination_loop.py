@@ -64,13 +64,13 @@ def train(hparams, output_dir):
       print(line+"Step {}.4. - train PPO in model env."
             " Time: {}".format(iloop, str(datetime.timedelta(seconds=time_delta))))
       iteration_num=3
-      hparams = trainer_lib.create_hparams("atari_base", "epochs_num={},simulated_environment=True,eval_every_epochs=0,save_models_every_epochs={}".format(iteration_num+1, iteration_num),
+      ppo_hparams = trainer_lib.create_hparams("atari_base", "epochs_num={},simulated_environment=True,eval_every_epochs=0,save_models_every_epochs={}".format(iteration_num+1, iteration_num),
                                            data_dir=output_dir)
       ppo_dir = tempfile.mkdtemp(dir=data_dir, prefix="ppo_")
       in_graph_wrappers = [(TimeLimitWrapper, {"timelimit": 10}),
                            (PongT2TGeneratorHackWrapper, {"add_value": -2})] + gym_problem.in_graph_wrappers
-      hparams.add_hparam("in_graph_wrappers", in_graph_wrappers)
-      rl_trainer_lib.train(hparams, "PongNoFrameskip-v4", ppo_dir)
+      ppo_hparams.add_hparam("in_graph_wrappers", in_graph_wrappers)
+      rl_trainer_lib.train(ppo_hparams, "PongNoFrameskip-v4", ppo_dir)
 
       last_model = ppo_dir + "/model{}.ckpt".format(iteration_num)
 
