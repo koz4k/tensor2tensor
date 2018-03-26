@@ -60,7 +60,7 @@ class GymDiscreteProblem(problem.Problem):
     self.environment_spec = lambda: gym.make("PongNoFrameskip-v4")
     self.in_graph_wrappers = [(MaxAndSkipWrapper, {"skip": 4})]
     self.collect_hparams = rl.atari_base()
-    self._num_steps = 1000
+    self.num_steps = 1000
     self.movies = True
     self.simulated_environment = None
 
@@ -76,7 +76,7 @@ class GymDiscreteProblem(problem.Problem):
       batch_env_factory(self.environment_spec, env_hparams, num_agents=1, xvfb=False)
 
 
-    with tf.variable_scope("", reuse=tf.AUTO_REUSE):
+    with tf.variable_scope("collect_datagen", reuse=tf.AUTO_REUSE):
       policy_lambda = self.collect_hparams.network
       policy_factory = tf.make_template(
         "network",
@@ -84,7 +84,7 @@ class GymDiscreteProblem(problem.Problem):
         create_scope_now_=True,
         unique_name_="network")
 
-    with tf.variable_scope("collect_datagen", reuse=tf.AUTO_REUSE):
+    with tf.variable_scope("", reuse=tf.AUTO_REUSE):
       sample_policy = lambda policy: policy.sample()
 
       self.collect_hparams.epoch_length = 10
@@ -142,10 +142,6 @@ class GymDiscreteProblem(problem.Problem):
     return 2
 
   @property
-  def num_steps(self):
-    return self._num_steps
-
-  @property
   def num_shards(self):
     return 10
 
@@ -177,15 +173,19 @@ class GymDiscreteProblem(problem.Problem):
     p.input_space_id = problem.SpaceID.IMAGE
     p.target_space_id = problem.SpaceID.IMAGE
 
+  def restore_networks(self, sess):
+    model_saver = tf.train.Saver(
+      tf.global_variables(".*network_parameters.*"))
+    if FLAGS.agent_policy_path:
+      model_saver.restore(sess, FLAGS.agent_policy_path)
+
   def generator(self, data_dir, tmp_dir):
     self._setup()
     clip_files = []
     with tf.Session() as sess:
       sess.run(tf.global_variables_initializer())
-      model_saver = tf.train.Saver(
-        tf.global_variables(".*network_parameters.*"))
-      if FLAGS.agent_policy_path:
-        model_saver.restore(sess, FLAGS.agent_policy_path)
+      self.restore_networks(sess)
+
       pieces_generated = 0
       while pieces_generated<self.num_steps:
         avilable_data_size = sess.run(self.avilable_data_size_op)
@@ -237,4 +237,14 @@ class GymSimulatedDiscreteProblem(GymDiscreteProblem):
   def __init__(self, *args, **kwargs):
     super(GymSimulatedDiscreteProblem, self).__init__(*args, **kwargs)
     self.simulated_environment = True
+
+  def restore_networks(self, sess):
+    super(GymSimulatedDiscreteProblem, self).restore_networks(sess)
+
+    env_model_loader = tf.train.Saver(tf.global_variables(".*basic_conv_gen.*"))
+    sess = tf.get_default_session()
+
+    ckpts = tf.train.get_checkpoint_state("./output")
+    ckpt = ckpts.model_checkpoint_path
+    env_model_loader.restore(sess, ckpt)
 

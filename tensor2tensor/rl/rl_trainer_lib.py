@@ -39,13 +39,14 @@ def define_train(hparams, environment_spec, event_dir):
   """Define the training setup."""
   policy_lambda = hparams.network
 
-  batch_env = utils.batch_env_factory(environment_spec, hparams, num_agents=hparams.num_agents)
+  with tf.variable_scope("", reuse=tf.AUTO_REUSE):
+    batch_env = utils.batch_env_factory(environment_spec, hparams, num_agents=hparams.num_agents)
 
   policy_factory = tf.make_template(
       "network",
       functools.partial(policy_lambda, batch_env.action_space, hparams))
 
-  with tf.variable_scope("", reuse=tf.AUTO_REUSE):
+  with tf.variable_scope("train", reuse=tf.AUTO_REUSE):
     memory, collect_summary = collect.define_collect(
         policy_factory, batch_env, hparams, eval_phase=False)
     ppo_summary = ppo.define_ppo_epoch(memory, policy_factory, hparams)
@@ -63,8 +64,8 @@ def define_train(hparams, environment_spec, event_dir):
     wrapped_eval_env_lambda = lambda: utils.EvalVideoWrapper(eval_env_lambda())
     # eval_batch_env = utils.define_batch_env(wrapped_eval_env_lambda, hparams.num_eval_agents,
     #                        xvfb=hparams.video_during_eval)
-    eval_batch_env = utils.batch_env_factory(wrapped_eval_env_lambda, hparams,
-                                             num_agents=hparams.num_eval_agents, xvfb=hparams.video_during_eval)
+    # eval_batch_env = utils.batch_env_factory(wrapped_eval_env_lambda, hparams,
+    #                                          num_agents=hparams.num_eval_agents, xvfb=hparams.video_during_eval)
 
     # _, eval_summary = collect.define_collect(
     #     policy_factory, eval_batch_env, hparams, eval_phase=True)

@@ -63,12 +63,17 @@ class SimulatedBatchEnv(InGraphBatchEnv):
     self._starting_observ = tf.Variable(tf.zeros(shape, observ_dtype), trainable=False)
 
     observ_dtype = tf.int64
-    self._observ_not_sure_why_we_need_this = tf.Variable(
-        tf.zeros((self.length,) + observ_shape, observ_dtype),
-        name='observ_new', trainable=False)
+    #These are needed due to T2T structure. They are not used, except for the shapes
+    self._fake_traget = tf.Variable(tf.zeros((self.length,) + observ_shape, observ_dtype))
+    self._fake_reward = tf.Variable(tf.zeros((self.length, 1), observ_dtype))
 
-    self._reward_not_sure_why_we_need_this = tf.Variable(tf.zeros((self.length,1), observ_dtype),
-                                                         name='reward_new', trainable=False)
+    #This is slightly strange but we want to have model created in the scope of constructor
+    self._action_holder = tf.Variable(tf.zeros((self.length,) + tuple(self.action_shape), self.action_dtype))
+    input = {"inputs_0": self._prev_observ, "inputs_1": self._observ,
+             "action": self._action_holder,
+             "targets": self._fake_traget,
+             "reward": self._fake_reward}
+    self._model_output = self._model(input)
 
 
   @property
@@ -83,22 +88,18 @@ class SimulatedBatchEnv(InGraphBatchEnv):
   def simulate(self, action):
 
     with tf.name_scope('environment/simulate'):
-      input = {"inputs_0": self._prev_observ, "inputs_1": self._observ,
-               "action": action,
-               "targets": self._observ_not_sure_why_we_need_this,
-               "reward": self._reward_not_sure_why_we_need_this}
-      model_output = self._model(input)
-      observ_expaned = model_output[0]['targets']
-      reward_expanded = model_output[0]['reward']
-      observ = tf.cast(tf.argmax(observ_expaned, axis=-1), tf.float32)
-      reward = tf.squeeze(tf.cast(tf.argmax(reward_expanded, axis=-1), tf.float32))
+      with tf.control_dependencies([self._action_holder.assign(action)]):
+        observ_expaned = self._model_output[0]['targets']
+        reward_expanded = self._model_output[0]['reward']
+        observ = tf.cast(tf.argmax(observ_expaned, axis=-1), tf.float32)
+        reward = tf.squeeze(tf.cast(tf.argmax(reward_expanded, axis=-1), tf.float32))
 
-      done = tf.constant(False, tf.bool, shape=(self.length,))
+        done = tf.constant(False, tf.bool, shape=(self.length,))
 
-      with tf.control_dependencies([observ]):
-        with tf.control_dependencies([self._prev_observ.assign(self._observ)]):
-          with tf.control_dependencies([self._observ.assign(observ)]):
-            return tf.identity(reward), tf.identity(done)
+        with tf.control_dependencies([observ]):
+          with tf.control_dependencies([self._prev_observ.assign(self._observ)]):
+            with tf.control_dependencies([self._observ.assign(observ)]):
+              return tf.identity(reward), tf.identity(done)
 
   def reset(self, indices=None):
     """Reset the batch of environments.
