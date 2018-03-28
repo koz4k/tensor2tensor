@@ -38,6 +38,7 @@ from tensor2tensor.rl.envs.tf_atari_wrappers import MemoryWrapper, TimeLimitWrap
 from tensor2tensor.rl.envs.tf_atari_wrappers import MaxAndSkipWrapper
 from tensor2tensor.rl.envs.tf_atari_wrappers import PongT2TGeneratorHackWrapper
 from tensor2tensor.rl import collect
+from tensor2tensor.utils import trainer_lib
 
 import tensorflow as tf
 
@@ -107,7 +108,7 @@ class GymDiscreteProblem(problem.Problem):
     }
 
     for x in range(self.history_size):
-      data_fields["inputs_encoded_{}".format(x)] =  tf.FixedLenFeature((), tf.string)
+      data_fields["inputs_encoded_{}".format(x)] = tf.FixedLenFeature((), tf.string)
 
 
     data_items_to_decoders = {
@@ -124,7 +125,7 @@ class GymDiscreteProblem(problem.Problem):
     }
 
     for x in range(self.history_size):
-      data_items_to_decoders["inputs_{}".format(x)] =  tf.contrib.slim.tfexample_decoder.Image(
+      data_items_to_decoders["inputs_{}".format(x)] = tf.contrib.slim.tfexample_decoder.Image(
                 image_key="inputs_encoded_{}".format(x),
                 format_key="image/format",
                 shape=[210, 160, 3],
@@ -251,3 +252,108 @@ class GymSimulatedDiscreteProblem(GymDiscreteProblem):
     ckpt = ckpts.model_checkpoint_path
     env_model_loader.restore(sess, ckpt)
 
+import random
+
+@registry.register_problem
+class GymDistortedDiscreteProblem(GymDiscreteProblem):
+  """Gym environment with discrete actions and rewards."""
+
+  def __init__(self, *args, **kwargs):
+    super(GymDistortedDiscreteProblem, self).__init__(*args, **kwargs)
+    self.ext_history_size = 4
+    self.distorted_prob = 0.5
+
+  def _setup(self):
+    super(GymDistortedDiscreteProblem, self)._setup()
+    hparams = trainer_lib.create_hparams(FLAGS.hparams_set,
+                                         data_dir="UNUSED")
+    hparams.force_full_predict = True
+    self._model = registry.model(FLAGS.model)(hparams, tf.estimator.ModeKeys.PREDICT)
+    self.action_buffer = deque(maxlen=self.ext_history_size + 1)
+    self.history_buffer = deque(maxlen=self.ext_history_size + 1)
+
+    self._observ_not_sure_why_we_need_this = tf.Variable(
+      tf.zeros((1,) + (210, 160, 3), tf.float32),
+      name='observ_new', trainable=False)
+
+    self._reward_not_sure_why_we_need_this = tf.Variable(tf.zeros((1, 1), tf.float32),
+                                                         name='reward_new', trainable=False)
+    self._trans_observ1 = tf.placeholder(tf.string)
+    self._trans_observ2 = tf.placeholder(tf.string)
+    self._trans_action = tf.placeholder(tf.float32, (1,))
+
+    trans_observ1 = tf.expand_dims(tf.cast(tf.reshape(tf.image.decode_png(self._trans_observ1), (210,160,3)), tf.float32), 0)
+    trans_observ2 = tf.expand_dims(tf.cast(tf.reshape(tf.image.decode_png(self._trans_observ2), (210,160,3)), tf.float32), 0)
+    input = {"inputs_0": trans_observ1, "inputs_1": trans_observ2,
+           "action": self._trans_action,
+           "targets": self._observ_not_sure_why_we_need_this,
+           "reward": self._reward_not_sure_why_we_need_this}
+    model_output = self._model(input)
+    observ_expaned = model_output[0]['targets']
+    observ = tf.argmax(tf.reshape(observ_expaned, (210, 160, 3, -1)), axis=-1)
+    self._trans_observ_res = tf.image.encode_png(tf.cast(observ, tf.uint16))
+
+  def transformed_frame(self, sess, observs, action):
+    return sess.run(self._trans_observ_res,
+                    feed_dict={self._trans_action: action,
+                               self._trans_observ1: observs[0],
+                               self._trans_observ2: observs[1]})
+
+  def restore_networks(self, sess):
+    super(GymDistortedDiscreteProblem, self).restore_networks(sess)
+
+    #TODO: adjust regexp for different models
+    env_model_loader = tf.train.Saver(tf.global_variables(".*basic_conv_gen.*"))
+    sess = tf.get_default_session()
+
+    ckpts = tf.train.get_checkpoint_state(FLAGS.output_dir)
+    if ckpts:
+      ckpt = ckpts.model_checkpoint_path
+      env_model_loader.restore(sess, ckpt)
+
+  def generator(self, data_dir, tmp_dir):
+    self._setup()
+    clip_files = []
+    with tf.Session() as sess:
+      sess.run(tf.global_variables_initializer())
+      self.restore_networks(sess)
+
+      pieces_generated = 0
+      while pieces_generated<self.num_steps:
+        avilable_data_size = sess.run(self.avilable_data_size_op)
+        if avilable_data_size>0:
+          observ, reward, action, done = sess.run(self.data_get_op)
+          self.history_buffer.append(observ)
+          self.action_buffer.append(action)
+
+          if self.movies==True:
+            file_name = os.path.join(tmp_dir,'output_{}.png'.format(pieces_generated))
+            clip_files.append(file_name)
+            with open(file_name, 'wb') as f:
+              f.write(observ)
+
+          if len(self.history_buffer)==self.ext_history_size+1:
+            pieces_generated += 1
+            ret_dict = {
+              "targets_encoded": [observ],
+              "image/format": ["png"],
+              "action": [int(action)],
+              # "done": [bool(done)],
+              "reward": [int(reward)],
+                }
+            if random.random() >= self.distorted_prob:
+              for i in range(2):
+                ret_dict["inputs_encoded_{}".format(i)] = [self.transformed_frame(
+                  sess,
+                  [self.history_buffer[i]]+[self.history_buffer[i+1]],
+                  self.action_buffer[i+1])]
+            else:
+              for i, v in enumerate(list(self.history_buffer)[2:-1]):
+                ret_dict["inputs_encoded_{}".format(i)] = [v]
+            yield ret_dict
+        else:
+          sess.run(self.collect_trigger_op)
+    if self.movies:
+      clip = ImageSequenceClip(clip_files, fps=25)
+      clip.write_videofile(os.path.join(data_dir, 'output_{}.mp4'.format(self.name)),
+                           fps=25, codec='mpeg4')

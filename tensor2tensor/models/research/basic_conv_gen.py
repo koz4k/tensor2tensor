@@ -88,18 +88,19 @@ class KanapaBasicConvGen(t2t_model.T2TModel):
     filters = self.hparams.hidden_size
     cur_frame = features["inputs_0"]
     prev_frame = features["inputs_1"]
-    action = common_layers.embedding(tf.to_int64(features["action"]),
-                                     10, filters)
-    action = tf.reshape(action, [-1, 1, 1, filters])
+    with tf.variable_scope("kanapa_model", reuse=tf.AUTO_REUSE):
+      action = common_layers.embedding(tf.to_int64(features["action"]),
+                                       10, filters)
+      action = tf.reshape(action, [-1, 1, 1, filters])
 
-    frames = tf.concat([cur_frame, prev_frame], axis=3)
-    h1 = tf.layers.conv2d(frames, filters, kernel_size=(3, 3), padding="SAME")
-    h2 = tf.layers.conv2d(tf.nn.relu(h1 + action), filters,
-                          kernel_size=(5, 5), padding="SAME")
-    res = tf.layers.conv2d(tf.nn.relu(h2 + action), 3 * 256,
-                           kernel_size=(3, 3), padding="SAME")
-    reward_pred_h1 = tf.reduce_mean(res, axis=[1, 2])
-    reward_pred = tf.layers.dense(reward_pred_h1, 2, name="reward")
+      frames = tf.concat([cur_frame, prev_frame], axis=3)
+      h1 = tf.layers.conv2d(frames, filters, kernel_size=(3, 3), padding="SAME")
+      h2 = tf.layers.conv2d(tf.nn.relu(h1 + action), filters,
+                            kernel_size=(5, 5), padding="SAME")
+      res = tf.layers.conv2d(tf.nn.relu(h2 + action), 3 * 256,
+                             kernel_size=(3, 3), padding="SAME")
+      reward_pred_h1 = tf.reduce_mean(res, axis=[1, 2])
+      reward_pred = tf.layers.dense(reward_pred_h1, 2, name="reward")
     # reward_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
     #   labels=tf.to_int32(features["reward"]), logits=reward_pred)
     # reward_loss = tf.reduce_mean(reward_loss)

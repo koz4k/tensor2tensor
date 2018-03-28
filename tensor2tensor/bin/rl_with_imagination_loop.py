@@ -30,12 +30,15 @@ def train(hparams, output_dir):
   line = ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>    "
   for iloop in range(hparams.epochs):
       time_delta = time.time() - start_time
+      FLAGS.model = hparams.generative_model
+      FLAGS.hparams_set = hparams.generative_model_params
       print(line+"Step {}.1. - generate data from policy. "
             "Time: {}".format(iloop, str(datetime.timedelta(seconds=time_delta))))
-      FLAGS.problems = "gym_discrete_problem"
+      FLAGS.problems = hparams.data_generation_problem if hparams.data_generation_problem else "gym_discrete_problem"
       FLAGS.agent_policy_path = last_model
       gym_problem = problems.problem(FLAGS.problems)
       gym_problem.num_steps = hparams.true_env_generator_num_steps
+      gym_problem.distorted_prob = 0.5 if iloop > 2 else 0.0
       iter_data_dir = os.path.join(data_dir, str(iloop))
       tf.gfile.MakeDirs(iter_data_dir)
       gym_problem.generate_data(iter_data_dir, tmp_dir)
@@ -46,8 +49,6 @@ def train(hparams, output_dir):
       # 2. generate env model
       FLAGS.data_dir = iter_data_dir
       FLAGS.output_dir = output_dir
-      FLAGS.model = hparams.generative_model
-      FLAGS.hparams_set = hparams.generative_model_params
       FLAGS.train_steps = hparams.model_train_steps
       FLAGS.eval_steps = 1
       t2t_trainer.main([])
