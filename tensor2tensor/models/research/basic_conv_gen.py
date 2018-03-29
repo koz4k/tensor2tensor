@@ -125,30 +125,31 @@ class ResidualBasicConvGen(t2t_model.T2TModel):
     action_space_size = 10
     kernel = (3, 3)
     # Gather all inputs.
-    action = common_layers.embedding(tf.to_int64(features["action"]),
-                                     action_space_size, action_embedding_size)
-    action = tf.reshape(action, [-1, 1, 1, action_embedding_size])
-    #broadcast to the shape compatibile with pictures
-    action += tf.expand_dims(tf.zeros_like(cur_frame[..., 0]), -1)
-    frames = tf.concat([cur_frame, prev_frame, action], axis=3)
-    # x = tf.layers.conv2d(frames, filters, kernel, activation=tf.nn.relu,
-    #                      strides=(2, 2), padding="SAME")
-    # Run a stack of convolutions.
-    x = frames
-    for _ in range(num_hidden_layers):
-      y = tf.layers.conv2d(x, filters, kernel, activation=tf.nn.relu,
-                           strides=(1, 1), padding="SAME")
-      x = common_layers.layer_norm(x + y)
-    # Up-convolve.
-    # x = tf.layers.conv2d_transpose(
-    #     frames, filters, kernel, activation=tf.nn.relu,
-    #     strides=(1, 1), padding="SAME")
-    # Output size is 3 * 256 for 3-channel color space.
-    res = tf.layers.conv2d(x, 3 * 256, kernel, padding="SAME")
-    x = tf.layers.flatten(x)
+    with tf.variable_scope("residual_model", reuse=tf.AUTO_REUSE):
+      action = common_layers.embedding(tf.to_int64(features["action"]),
+                                       action_space_size, action_embedding_size)
+      action = tf.reshape(action, [-1, 1, 1, action_embedding_size])
+      #broadcast to the shape compatibile with pictures
+      action += tf.expand_dims(tf.zeros_like(cur_frame[..., 0]), -1)
+      frames = tf.concat([cur_frame, prev_frame, action], axis=3)
+      # x = tf.layers.conv2d(frames, filters, kernel, activation=tf.nn.relu,
+      #                      strides=(2, 2), padding="SAME")
+      # Run a stack of convolutions.
+      x = frames
+      for _ in range(num_hidden_layers):
+        y = tf.layers.conv2d(x, filters, kernel, activation=tf.nn.relu,
+                             strides=(1, 1), padding="SAME")
+        x = common_layers.layer_norm(x + y)
+      # Up-convolve.
+      # x = tf.layers.conv2d_transpose(
+      #     frames, filters, kernel, activation=tf.nn.relu,
+      #     strides=(1, 1), padding="SAME")
+      # Output size is 3 * 256 for 3-channel color space.
+      res = tf.layers.conv2d(x, 3 * 256, kernel, padding="SAME")
+      x = tf.layers.flatten(x)
 
-    # TODO: pm->pm: add done
-    res_done = tf.layers.dense(x, 2)
+      # TODO: pm->pm: add done
+      res_done = tf.layers.dense(x, 2)
 
     return {"targets":res, "reward": x}
 
