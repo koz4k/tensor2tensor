@@ -319,6 +319,8 @@ class GymDistortedDiscreteProblem(GymDiscreteProblem):
       self.restore_networks(sess)
 
       pieces_generated = 0
+      zzz = 0
+      directory = "/tmp/blazej/"
       while pieces_generated<self.num_steps:
         avilable_data_size = sess.run(self.avilable_data_size_op)
         if avilable_data_size>0:
@@ -341,7 +343,8 @@ class GymDistortedDiscreteProblem(GymDiscreteProblem):
               # "done": [bool(done)],
               "reward": [int(reward)],
                 }
-            if random.random() >= self.distorted_prob:
+            print(self.distorted_prob)
+            if random.random() < self.distorted_prob:
               for i in range(2):
                 ret_dict["inputs_encoded_{}".format(i)] = [self.transformed_frame(
                   sess,
@@ -350,6 +353,15 @@ class GymDistortedDiscreteProblem(GymDiscreteProblem):
             else:
               for i, v in enumerate(list(self.history_buffer)[2:-1]):
                 ret_dict["inputs_encoded_{}".format(i)] = [v]
+            ###
+            with open(os.path.join(directory, 'output_{}_i0.png'.format(zzz)), 'wb') as f:
+              f.write(ret_dict["inputs_encoded_0"][0])
+            with open(os.path.join(directory, 'output_{}_i1.png'.format(zzz)), 'wb') as f:
+              f.write(ret_dict["inputs_encoded_1"][0])
+            with open(os.path.join(directory, 'output_{}_o.png'.format(zzz)), 'wb') as f:
+              f.write(ret_dict["targets_encoded"][0])
+            zzz += 1
+            ###
             yield ret_dict
         else:
           sess.run(self.collect_trigger_op)

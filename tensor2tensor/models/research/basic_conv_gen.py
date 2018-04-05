@@ -86,8 +86,8 @@ class KanapaBasicConvGen(t2t_model.T2TModel):
 
   def body(self, features):
     filters = self.hparams.hidden_size
-    cur_frame = features["inputs_0"]
-    prev_frame = features["inputs_1"]
+    cur_frame = features["inputs_0"] / 255.0  # TODO - mniej na pałę.
+    prev_frame = features["inputs_1"] / 255.0
     with tf.variable_scope("kanapa_model", reuse=tf.AUTO_REUSE):
       action = common_layers.embedding(tf.to_int64(features["action"]),
                                        10, filters)
@@ -119,8 +119,8 @@ class ResidualBasicConvGen(t2t_model.T2TModel):
     filters = 38
     num_hidden_layers = self.hparams.num_hidden_layers
     #TODO: possibly make embeding of inputs_0 and inputs_1
-    cur_frame = features["inputs_0"]
-    prev_frame = features["inputs_1"]
+    cur_frame = features["inputs_0"] / 255.0  # TODO - mniej na pałę.
+    prev_frame = features["inputs_1"] / 255.0
     action_embedding_size = 32
     action_space_size = 10
     kernel = (3, 3)
