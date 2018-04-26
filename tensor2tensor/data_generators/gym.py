@@ -156,7 +156,7 @@ class GymPongRandom5k(GymDiscreteProblem):
 
   @property
   def num_actions(self):
-    return 4
+    return 18 # self.env.action_space.n
 
   @property
   def min_reward(self):

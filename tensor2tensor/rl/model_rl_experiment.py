@@ -69,7 +69,7 @@ def train(hparams, output_dir):
     FLAGS.model = hparams.generative_model
     FLAGS.hparams_set = hparams.generative_model_params
     FLAGS.train_steps = hparams.model_train_steps
-    FLAGS.train_steps = 1
+    # FLAGS.train_steps = 1
     FLAGS.eval_steps = 1
     t2t_trainer.main([])
 
@@ -110,13 +110,13 @@ def train(hparams, output_dir):
 def main(_):
   hparams = tf.contrib.training.HParams(
       epochs=100,
-      true_env_generator_num_steps=100,
+      true_env_generator_num_steps=10000,
       generative_model="basic_conv_gen",
       generative_model_params="basic_conv",
-      model_train_steps=5000,
+      model_train_steps=15000,
       simulated_env_generator_num_steps=300,
-      ppo_epochs_num=2,
-      ppo_epoch_length=300,
+      ppo_epochs_num=3,
+      ppo_epoch_length=1000,
   )
   train(hparams, FLAGS.output_dir)
 
