@@ -537,10 +537,11 @@ class VideoModality(modality.Modality):
       body_output_shape = common_layers.shape_list(body_output)
       reshape_shape = body_output_shape[:3]
       reshape_shape.extend([num_channels, num_frames, self.top_dimensionality])
+      reshape_shape = [reshape_shape[i] for i in [0, 4, 1, 2, 3, 5]]
       res = tf.layers.dense(
-          body_output, self.top_dimensionality * num_channels * num_frames)
+          body_output, self.top_dimensionality * num_channels * num_frames, use_bias=False)
       res = tf.reshape(res, reshape_shape)
-      res = tf.transpose(res, [0, 4, 1, 2, 3, 5])
+      #res = tf.transpose(res, [0, 4, 1, 2, 3, 5])
       if not tf.get_variable_scope().reuse:
         res_argmax = tf.cast(tf.argmax(res[:, -1, :, :, :, :], axis=-1),
                              tf.uint8)
@@ -570,8 +571,10 @@ class VideoModalityL1(VideoModality):
     with tf.variable_scope("rgb"):
       body_output_shape = common_layers.shape_list(body_output)
       res = tf.layers.dense(body_output, num_channels * num_frames, name="cast")
-      res = tf.reshape(res, body_output_shape[:3] + [num_channels, num_frames])
-      res = tf.transpose(res, [0, 4, 1, 2, 3])  # Move frames next to batch.
+      shape = body_output_shape[:3] + [num_channels, num_frames]
+      shape = [shape[i] for i in [0, 4, 1, 2, 3]]
+      res = tf.reshape(res, shape)
+      #res = tf.transpose(res, [0, 4, 1, 2, 3])  # Move frames next to batch.
       if not tf.get_variable_scope().reuse:
         res_argmax = tf.cast(res[:, -1, :, :, :], tf.uint8)
         tf.summary.image("result", res_argmax, max_outputs=1)

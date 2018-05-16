@@ -34,6 +34,8 @@ from tensor2tensor.rl.envs import utils
 
 import tensorflow as tf
 
+from tensorflow.python.client import timeline
+
 
 def define_train(hparams, environment_spec, event_dir):
   """Define the training setup."""
@@ -111,7 +113,16 @@ def train(hparams, environment_spec, event_dir=None):
       ckpt = ckpts.model_checkpoint_path
       env_model_loader.restore(sess, ckpt)
     for epoch_index in range(hparams.epochs_num):
-      summary = sess.run(train_summary_op)
+      print("Starting epoch no {}".format(epoch_index))
+      run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+      run_metadata = tf.RunMetadata()
+      summary = sess.run(train_summary_op, options=run_options, run_metadata=run_metadata)
+      # Create the Timeline object, and write it to a json
+      tl = timeline.Timeline(run_metadata.step_stats)
+      ctf = tl.generate_chrome_trace_format()
+      with open(os.path.join(event_dir, 'timeline.json'), 'w') as f:
+        f.write(ctf)
+
       if summary_writer:
         summary_writer.add_summary(summary, epoch_index)
       if (hparams.eval_every_epochs and
