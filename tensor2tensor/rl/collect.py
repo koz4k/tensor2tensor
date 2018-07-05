@@ -21,7 +21,7 @@ from __future__ import print_function
 import copy
 
 from tensor2tensor.rl.envs.batch_env_factory import batch_env_factory
-from tensor2tensor.rl.envs.tf_atari_wrappers import WrapperBase
+from tensor2tensor.rl.envs.tf_atari_wrappers import WrapperBase, DebugWrapper
 from tensor2tensor.rl.envs.utils import get_policy
 
 import tensorflow as tf
@@ -79,6 +79,23 @@ class _MemoryWrapper(WrapperBase):
     with tf.control_dependencies([assign]):
       return tf.identity(reward), tf.identity(done)
 
+dump_index = 0
+dump_path = "/tmp"
+def dumper(observ, reward, done, action):
+  import numpy as np
+  from PIL import Image
+  import os
+
+  global dump_index
+  dump_index += 1
+
+  observ = observ[0, ...]
+  print("Observ:{}".format(observ.shape))
+  img = Image.fromarray(np.ndarray.astype(observ, np.uint8))
+  path = os.path.join(dump_path, "dump_{}.png".format(dump_index))
+  img.save(path)
+
+  return 0.0
 
 def define_collect(hparams, scope, eval_phase,
                    collect_level=-1,
@@ -101,6 +118,8 @@ def define_collect(hparams, scope, eval_phase,
     collect_level = collect_level if \
       collect_level >= 0 else len(wrappers) + collect_level + 1
     wrappers.insert(collect_level, [_MemoryWrapper, {}])
+    wrappers.insert(0, [DebugWrapper, {"process_fun": dumper}])
+
     rollout_metadata = None
     speculum = None
     for w in wrappers:
