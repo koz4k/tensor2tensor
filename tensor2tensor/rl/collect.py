@@ -88,11 +88,11 @@ def dumper(observ, reward, done, action):
 
   global dump_index
   dump_index += 1
-
+  if dump_index%100==0:
+    print("Observ:{}".format(observ.shape))
   observ = observ[0, ...]
-  print("Observ:{}".format(observ.shape))
   img = Image.fromarray(np.ndarray.astype(observ, np.uint8))
-  path = os.path.join(dump_path, "dump_{}.png".format(dump_index))
+  path = os.path.join(dump_path, "frame_%05d.png" % dump_index)
   img.save(path)
 
   return 0.0
@@ -118,7 +118,7 @@ def define_collect(hparams, scope, eval_phase,
     collect_level = collect_level if \
       collect_level >= 0 else len(wrappers) + collect_level + 1
     wrappers.insert(collect_level, [_MemoryWrapper, {}])
-    wrappers.insert(0, [DebugWrapper, {"process_fun": dumper}])
+    # wrappers.insert(0, [DebugWrapper, {"process_fun": dumper}])
 
     rollout_metadata = None
     speculum = None

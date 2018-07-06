@@ -561,6 +561,21 @@ def rl_modelrl_tiny():
 
 
 @registry.register_hparams
+def rl_modelrl_pm_tiny():
+  """Tiny set for testing."""
+  return rl_modelrl_base().override_from_dict(
+      tf.contrib.training.HParams(
+          epochs=2,
+          true_env_generator_num_steps=100,
+          simulated_env_generator_num_steps=500,
+          model_train_steps=1,
+          # ppo_epochs_num=2,
+          # ppo_epoch_length=60,
+          # ppo_num_agents=2,
+      ).values())
+
+
+@registry.register_hparams
 def rl_modelrl_tiny_stochastic():
   """Tiny setting with a stochastic next-frame model."""
   hparams = rl_modelrl_tiny()
