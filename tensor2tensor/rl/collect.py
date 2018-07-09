@@ -91,10 +91,26 @@ def dumper(observ, reward, done, action):
   if dump_index%100==0:
     print("Observ:{}".format(observ.shape))
   observ = observ[0, ...]
-  img = Image.fromarray(np.ndarray.astype(observ, np.uint8))
-  path = os.path.join(dump_path, "frame_%05d.png" % dump_index)
-  img.save(path)
+  for i in range(4):
+    img = Image.fromarray(np.ndarray.astype(observ[..., i*3:(i+1)*3], np.uint8))
+    path = os.path.join(dump_path, "frame_%05d_%d.png" % (dump_index, i))
+    img.save(path)
+  return 0.0
 
+dump_index0 = 0
+def dumper0(observ, reward, done, action):
+  import numpy as np
+  from PIL import Image
+  import os
+
+  global dump_index0
+  dump_index0 += 1
+  if dump_index0%100==0:
+    print("Observ:{}".format(observ.shape))
+  observ = observ[0, ...]
+  img = Image.fromarray(np.ndarray.astype(observ, np.uint8))
+  path = os.path.join(dump_path, "frame_%05d.png" % (dump_index0))
+  img.save(path)
   return 0.0
 
 def define_collect(hparams, scope, eval_phase,
@@ -118,7 +134,8 @@ def define_collect(hparams, scope, eval_phase,
     collect_level = collect_level if \
       collect_level >= 0 else len(wrappers) + collect_level + 1
     wrappers.insert(collect_level, [_MemoryWrapper, {}])
-    # wrappers.insert(0, [DebugWrapper, {"process_fun": dumper}])
+    # wrappers.append([DebugWrapper, {"process_fun": dumper}])
+    # wrappers.insert(0, [DebugWrapper, {"process_fun": dumper0}])
 
     rollout_metadata = None
     speculum = None
