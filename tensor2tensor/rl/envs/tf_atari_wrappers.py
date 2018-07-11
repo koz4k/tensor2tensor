@@ -199,6 +199,61 @@ class StackAndSkipWrapper(WrapperBase):
       return tf.gather(self.observ, indices)
 
 
+class StackAndSkipWrapper_v2(WrapperBase):
+  """Stack and skip wrapper version 2.
+
+  The wrapper works under assumptions that issuing an action 
+  to an environment with done=True has not effect.
+  """
+
+  def __init__(self, batch_env, skip=4):
+    super(StackAndSkipWrapper_v2, self).__init__(batch_env)
+    self.skip = skip
+    self._observ = None
+    self.old_shape = batch_env.observ.shape.as_list()
+    observs_shape = self.old_shape[:-1] + [self.old_shape[-1] * self.skip]
+    observ_dtype = tf.float32
+    self._observ = tf.Variable(tf.zeros(observs_shape, observ_dtype),
+                               trainable=False)
+
+  def simulate(self, action):
+    with tf.name_scope("environment/simulate"):  # Do we need this?
+      initializer = (tf.zeros(self.old_shape, dtype=tf.float32),
+                     tf.fill((len(self),), 0.0), tf.fill((len(self),), False))
+
+      def not_done_step(a, _):
+        reward, done = self._batch_env.simulate(action)
+        with tf.control_dependencies([reward, done]):
+          r0 = self._batch_env.observ + 0
+          r1 = tf.add(a[1], reward)
+          r2 = tf.logical_or(a[2], done)
+          return (r0, r1, r2)
+
+      simulate_ret = tf.scan(not_done_step, tf.range(self.skip),
+                             initializer=initializer, parallel_iterations=1,
+                             infer_shape=False)
+      observations, rewards, dones = simulate_ret
+      transposed_obs = tf.transpose(observations, [1, 2, 3, 0, 4])
+      transposed_obs = tf.reshape(transposed_obs, tf.shape(self._observ))
+      with tf.control_dependencies([self._observ.assign(transposed_obs)]):
+        return tf.identity(rewards[-1, ...]), tf.identity(dones[-1, ...])
+
+  def _reset_non_empty(self, indices):
+    # pylint: disable=protected-access
+    new_values = self._batch_env._reset_non_empty(indices)
+    # pylint: enable=protected-access
+    inx = tf.concat(
+        [
+            tf.ones(tf.size(tf.shape(new_values)), dtype=tf.int32)[:-1],
+            [self.skip]
+        ],
+        axis=0)
+    assign_op = tf.scatter_update(self._observ, indices, tf.tile(
+        new_values, inx))
+    with tf.control_dependencies([assign_op]):
+      return tf.gather(self.observ, indices)
+
+
 class AutoencoderWrapper(WrapperBase):
   """ Transforms the observations taking the bottleneck
       state of an autoencoder"""
