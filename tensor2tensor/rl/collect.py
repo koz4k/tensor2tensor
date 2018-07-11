@@ -21,7 +21,7 @@ from __future__ import print_function
 import copy
 
 from tensor2tensor.rl.envs.batch_env_factory import batch_env_factory
-from tensor2tensor.rl.envs.tf_atari_wrappers import WrapperBase
+from tensor2tensor.rl.envs.tf_atari_wrappers import WrapperBase, DebugWrapper
 from tensor2tensor.rl.envs.utils import get_policy
 
 import tensorflow as tf
@@ -82,7 +82,8 @@ class _MemoryWrapper(WrapperBase):
 
 def define_collect(hparams, scope, eval_phase,
                    collect_level=-1,
-                   policy_to_actions_lambda=None):
+                   policy_to_actions_lambda=None,
+                   debugs_confs=[]):
   """ Collect trajectories.
       Returns memory (observtions, rewards, dones, actions,
       pdfs, values_functions)
@@ -102,6 +103,8 @@ def define_collect(hparams, scope, eval_phase,
     collect_level = collect_level if \
       collect_level >= 0 else len(wrappers) + collect_level + 1
     wrappers.insert(collect_level, [_MemoryWrapper, {}])
+    for function, level in debugs_confs:
+      wrappers.insert(level, [DebugWrapper, {"process_fun": function}])
     rollout_metadata = None
     speculum = None
     for w in wrappers:

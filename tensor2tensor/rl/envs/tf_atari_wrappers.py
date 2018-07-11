@@ -58,6 +58,54 @@ class WrapperBase(InGraphBatchEnv):
       return tf.identity(new_values)
 
 
+class DebugWrapper(WrapperBase):
+  """ DebugWrapper can be used for running python code
+      that produces diagnostic information in collect.
+      For example setting debugs_confs=[(dumper, 0)] will save
+      frames from the environment.
+      dump_index = 0
+      dump_path = "/tmp"
+      def dumper(observ, reward, done, action):
+        import numpy as np
+        from PIL import Image
+        import os
+        global dump_index
+        dump_index += 1
+        observ = observ[0, ...]
+        print("Observ:{}".format(observ.shape))
+        img = Image.fromarray(np.ndarray.astype(observ, np.uint8))
+        path = os.path.join(dump_path, "dump_{}.png".format(dump_index))
+        img.save(path)
+        return 0.0
+  """
+
+  def __init__(self, batch_env, process_fun):
+    super(DebugWrapper, self).__init__(batch_env)
+    self.process_fun = process_fun
+
+  def simulate(self, action):
+    reward, done = self._batch_env.simulate(action)
+    with tf.control_dependencies([reward, done]):
+      inputs = [self._batch_env.observ, reward, done, action]
+      ret = tf.py_func(self.process_fun, inputs, tf.double)
+
+      with tf.control_dependencies([ret]):
+        return tf.identity(reward), tf.identity(done)
+
+  @property
+  def observ(self):
+    """Access the variable holding the current observation."""
+    return self._batch_env.observ
+
+  def __len__(self):
+    """Number of combined environments."""
+    return len(self._batch_env)
+
+  def _reset_non_empty(self, indices):
+    # pylint: disable=protected-access
+    return self._batch_env._reset_non_empty(indices)
+
+
 class MaxAndSkipWrapper(WrapperBase):
   """ Max and skip wrapper.
       The wrapper works under assumptions that issuing an action
@@ -208,9 +256,6 @@ class IntToBitWrapper(WrapperBase):
         trainable=False)
 
   def simulate(self, action):
-    action = tf.Print(action, [action], message="action=", summarize=200)
-
-    # action = tf.zeros_like(action) #Temporary hacked bugfix
     reward, done = self._batch_env.simulate(action)
     with tf.control_dependencies([reward, done]):
       with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
