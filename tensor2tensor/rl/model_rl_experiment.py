@@ -552,12 +552,14 @@ def rl_modelrl_short():
 @registry.register_hparams
 def rl_modelrl_base_max_and_skip():
   hparams = rl_modelrl_base()
-  hparams.game = "wrapped_long_pong_max_and_skip",
+  hparams.game = "wrapped_long_pong_max_and_skip"
+  return hparams
 
 @registry.register_hparams
 def rl_modelrl_base_stack_and_skip_v2():
   hparams = rl_modelrl_base()
-  hparams.game = "wrapped_long_pong_stack_and_skip_v2",
+  hparams.game = "wrapped_long_pong_stack_and_skip_v2"
+  return hparams
 
 @registry.register_hparams
 def rl_modelrl_tiny():
