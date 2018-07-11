@@ -549,6 +549,15 @@ def rl_modelrl_short():
   hparams.ppo_epochs_num //= 10
   return hparams
 
+@registry.register_hparams
+def rl_modelrl_base_max_and_skip():
+  hparams = rl_modelrl_base()
+  hparams.game = "wrapped_long_pong_max_and_skip",
+
+@registry.register_hparams
+def rl_modelrl_base_stack_and_skip_v2():
+  hparams = rl_modelrl_base()
+  hparams.game = "wrapped_long_pong_stack_and_skip_v2",
 
 @registry.register_hparams
 def rl_modelrl_tiny():

@@ -21,10 +21,11 @@ from __future__ import print_function
 
 # We need gym_utils for the game environments defined there.
 from tensor2tensor.data_generators import gym_utils  # pylint: disable=unused-import
-from tensor2tensor.data_generators.gym_problems import GymDiscreteProblem,\
+from tensor2tensor.data_generators.gym_problems import GymDiscreteProblem, \
   GymSimulatedDiscreteProblem, GymRealDiscreteProblem, \
   GymDiscreteProblemWithAutoencoder, GymDiscreteProblemAutoencoded, \
-  GymSimulatedDiscreteProblemAutoencoded
+  GymSimulatedDiscreteProblemAutoencoded, standard_atari_env_spec_max_and_skip, \
+  standard_atari_env_spec_stack_and_skip_v2
 from tensor2tensor.utils import registry
 
 
@@ -172,6 +173,22 @@ class GymDiscreteProblemWithAgentOnWrappedLongPong(GymRealDiscreteProblem,
 
 
 @registry.register_problem
+class GymDiscreteProblemWithAgentOnWrappedLongPongMaxAndSkip(
+  GymRealDiscreteProblem, GymWrappedLongPongRandom):
+
+  def get_environment_spec(self):
+    return standard_atari_env_spec_max_and_skip(self.env_name)
+
+
+@registry.register_problem
+class GymDiscreteProblemWithAgentOnWrappedLongPongStackAndSkipV2(
+  GymRealDiscreteProblem, GymWrappedLongPongRandom):
+
+  def get_environment_spec(self):
+    return standard_atari_env_spec_stack_and_skip_v2(self.env_name)
+
+
+@registry.register_problem
 class GymDiscreteProblemWithAgentOnWrappedLongPongWithAutoencoder(
     GymDiscreteProblemWithAutoencoder, GymWrappedLongPongRandom):
   pass
@@ -195,6 +212,54 @@ class GymSimulatedDiscreteProblemWithAgentOnWrappedLongPong(
   @property
   def num_testing_steps(self):
     return 100
+
+
+@registry.register_problem
+class GymSimulatedDiscreteProblemWithAgentOnWrappedLongPongMaxAndSkip(
+  GymSimulatedDiscreteProblemWithAgentOnWrappedLongPong):
+  """Simulated pong."""
+
+  @property
+  def initial_frames_problem(self):
+    return "gym_discrete_problem_with_agent_on_wrapped_long_pong_max_and_skip"
+
+  def get_environment_spec(self):
+    env_spec = standard_atari_env_spec_max_and_skip(self.env_name)
+    env_spec.simulated_env = True
+    env_spec.add_hparam("simulation_random_starts", False)
+    env_spec.add_hparam("intrinsic_reward_scale", 0.0)
+    initial_frames_problem = registry.problem(self.initial_frames_problem)
+    env_spec.add_hparam("initial_frames_problem", initial_frames_problem)
+    env_spec.add_hparam("video_num_input_frames", self.num_input_frames)
+    env_spec.add_hparam("video_num_target_frames", self.video_num_target_frames)
+
+    return env_spec
+
+
+@registry.register_problem
+class GymSimulatedDiscreteProblemWithAgentOnWrappedLongPongStackAndSkipV2(
+  GymSimulatedDiscreteProblemWithAgentOnWrappedLongPong):
+  """Simulated pong."""
+
+  def __init__(self, *args, **kwargs):
+    super(GymSimulatedDiscreteProblemWithAgentOnWrappedLongPong, self).\
+      __init__(*args, **kwargs)
+
+  @property
+  def initial_frames_problem(self):
+    return "gym_discrete_problem_with_agent_on_wrapped_long_pong_stack_and_skip_v2"
+
+  def get_environment_spec(self):
+    env_spec = standard_atari_env_spec_stack_and_skip_v2(self.env_name)
+    env_spec.simulated_env = True
+    env_spec.add_hparam("simulation_random_starts", False)
+    env_spec.add_hparam("intrinsic_reward_scale", 0.0)
+    initial_frames_problem = registry.problem(self.initial_frames_problem)
+    env_spec.add_hparam("initial_frames_problem", initial_frames_problem)
+    env_spec.add_hparam("video_num_input_frames", self.num_input_frames)
+    env_spec.add_hparam("video_num_target_frames", self.video_num_target_frames)
+
+    return env_spec
 
 
 @registry.register_problem
