@@ -546,6 +546,20 @@ def rl_modelrl_base():
 
 
 @registry.register_hparams
+def rl_modelrl_base_freeway():
+  """Base setting with freeway."""
+  hparams = rl_modelrl_base()
+  hparams.game = 'freeway'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_tiny_freeway():
+  """Base setting with freeway."""
+  hparams = rl_modelrl_tiny()
+  hparams.game = 'freeway'
+  return hparams
+
+@registry.register_hparams
 def rl_modelrl_base_stochastic():
   """Base setting with a stochastic next-frame model."""
   hparams = rl_modelrl_base()
