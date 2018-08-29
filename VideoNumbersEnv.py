@@ -19,27 +19,30 @@ class VideoNumbersEnv:
 		self.state['timestep'] = -9
 
 		self.action_space = gym.spaces.discrete.Discrete(3)
-
 		self.reset()
-		self.observation_space = Box(0, 255, self.give_ob().shape, dtype=np.uint8)
+		self.observation_space = Box(0, 255, self._give_ob().shape, dtype=np.uint8)
 		self.reward_range = (-np.inf, np.inf)
-		self.metadata = None
+		self.metadata = dict()
+		self.unwrapped = self
+
+	def close(self):
+		return
 
 	def step(self, action):
 		# actions have no effect on environment
 		self.state['timestep'] += 1
-		ob = self.give_ob()
+		ob = self._give_ob()
 		info = dict(state=deepcopy(self.state))
 		done = self.state['timestep'] >= 99
 		reward = 0
 		return ob, reward, self.done, info
 
-	def give_ob(self):
+	def _give_ob(self):
 		# Draws timestep on image, background pixel value also depends on timestep
 		number_to_draw = np.min([99, self.state['timestep']])
 		im = Image.fromarray(np.full([16, 16, 3], number_to_draw, dtype=np.uint8), mode='RGB')
 		draw = ImageDraw.Draw(im)
-		font = ImageFont.truetype("arial.ttf", 15)
+		font = ImageFont.truetype("DejaVuSans.ttf", 12)
 		number_str = str(number_to_draw).rjust(2, '0')
 		draw.text((0, 0), number_str, font=font)
 		return np.array(im)
@@ -48,7 +51,7 @@ class VideoNumbersEnv:
 		self.state = dict(
 			timestep=0,
 		)
-		ob = self.give_ob()
+		ob = self._give_ob()
 		self.done = False
 		return ob
 

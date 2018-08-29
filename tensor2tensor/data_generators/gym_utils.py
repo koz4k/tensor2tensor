@@ -108,6 +108,20 @@ class PongWrapper(WarmupWrapper):
       return x, y
 
 
+import VideoNumbersEnv
+
+def video_numbers_factory(warm_up_examples=0, action_space_reduction=False,
+                         reward_skip_steps=0, big_ball=False):
+  """Wrapped pong games."""
+  env = VideoNumbersEnv.VideoNumbersEnv()
+  return env
+
+
+gym.envs.register(id="T2TVideoNumbers-v1",
+                  entry_point=lambda: VideoNumbersEnv.VideoNumbersEnv(),
+                  max_episode_steps=200)
+
+
 def wrapped_pong_factory(warm_up_examples=0, action_space_reduction=False,
                          reward_skip_steps=0, big_ball=False):
   """Wrapped pong games."""
