@@ -560,6 +560,27 @@ def rl_modelrl_tiny_freeway():
   return hparams
 
 @registry.register_hparams
+def rl_modelrl_tiny_video_numbers():
+  """Base setting with video_numbers."""
+  hparams = rl_modelrl_tiny()
+  hparams.game = 'video_numbers'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_base_video_numbers():
+  """Base setting with video_numbers."""
+  hparams = rl_modelrl_base()
+  hparams.game = 'video_numbers'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_short_video_numbers():
+  """Base setting with video_numbers."""
+  hparams = rl_modelrl_short()
+  hparams.game = 'video_numbers'
+  return hparams
+
+@registry.register_hparams
 def rl_modelrl_base_stochastic():
   """Base setting with a stochastic next-frame model."""
   hparams = rl_modelrl_base()
