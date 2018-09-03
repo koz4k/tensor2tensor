@@ -21,6 +21,11 @@ import numpy as np
 
 
 # pylint: disable=method-hidden
+import VideoNumbersEnv
+import pixel_control
+import point_mass
+
+
 class WarmupWrapper(gym.Wrapper):
   """Warmup wrapper."""
 
@@ -108,17 +113,12 @@ class PongWrapper(WarmupWrapper):
       return x, y
 
 
-import VideoNumbersEnv
+gym.envs.register(id="T2TPixelControl-v1",
+                  entry_point=lambda: pixel_control.PixelControl(),
+                  max_episode_steps=200)
 
-def video_numbers_factory(warm_up_examples=0, action_space_reduction=False,
-                         reward_skip_steps=0, big_ball=False):
-  """Wrapped pong games."""
-  env = VideoNumbersEnv.VideoNumbersEnv()
-  return env
-
-
-gym.envs.register(id="T2TVideoNumbers-v1",
-                  entry_point=lambda: VideoNumbersEnv.VideoNumbersEnv(),
+gym.envs.register(id="T2TPointMassFO_Size32_DiscreateReward-v1",
+                  entry_point=lambda: point_mass.PointMassFO(img_size=16, discreate_reward=True),
                   max_episode_steps=200)
 
 

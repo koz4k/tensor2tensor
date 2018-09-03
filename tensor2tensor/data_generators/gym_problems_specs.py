@@ -148,7 +148,13 @@ def create_problems_for_env(game_name, entry_point, env_name_suffix=None,
   with_agent_cls = type("GymDiscreteProblemWithAgentOn%s" % camel_game_name,
                         (GymRealDiscreteProblem, problem_cls), {})
 
+<<<<<<< HEAD
   registry.register_problem(with_agent_cls)
+=======
+@registry.register_problem
+class GymSimulatedDiscreteProblemWithAgentOnVideoNumbers(
+    GymSimulatedDiscreteProblem, GymVideoNumbersRandom):
+>>>>>>> 45111bc... adds pixel control env
 
   # Create and register the simulated Problem
   simulated_cls = type(
@@ -192,6 +198,7 @@ def create_problems_for_atari_game(
   if game_mode not in ATARI_GAME_MODES:
     raise ValueError("Unknown ATARI game mode: %s." % game_mode)
 
+<<<<<<< HEAD
   env_name = _snake_case_to_camel_case(game_name) + game_mode
 
   return create_problems_for_env(
@@ -199,6 +206,11 @@ def create_problems_for_atari_game(
       entry_point=lambda: gym_utils.wrapped_factory(  # pylint: disable=g-long-lambda
           env=env_name, reward_clipping=True))
 
+=======
+@registry.register_problem
+class GymWrappedFullPongRandom(GymDiscreteProblem):
+  """Pong game, random actions."""
+>>>>>>> 45111bc... adds pixel control env
 
 # Register the atari games with all of the possible modes.
 for game in ATARI_ALL_MODES_SHORT_LIST:
