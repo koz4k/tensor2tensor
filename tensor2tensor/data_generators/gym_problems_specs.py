@@ -91,6 +91,74 @@ ATARI_PROBLEMS = {}
 
 
 @registry.register_problem
+class GymPixelControlRandom(GymDiscreteProblem):
+  """Gym PixelControl"""
+
+  @property
+  def env_name(self):
+    return "T2TPixelControl-v1"
+
+  @property
+  def min_reward(self):
+    return 0
+
+  @property
+  def num_rewards(self):
+    return 2
+
+  @property
+  def num_testing_steps(self):
+    return 100
+
+
+@registry.register_problem
+class GymDiscreteProblemWithAgentOnPixelControl(GymRealDiscreteProblem,
+                                                   GymPixelControlRandom):
+  pass
+
+
+@registry.register_problem
+class GymDiscreteProblemWithAgentOnPixelControlWithAutoencoder(
+    GymDiscreteProblemWithAutoencoder, GymPixelControlRandom):
+  pass
+
+
+@registry.register_problem
+class GymDiscreteProblemWithAgentOnPixelControlAutoencoded(
+    GymDiscreteProblemAutoencoded, GymPixelControlRandom):
+  pass
+
+
+@registry.register_problem
+class GymSimulatedDiscreteProblemWithAgentOnPixelControl(
+    GymSimulatedDiscreteProblem, GymPixelControlRandom):
+  """Simulated Point Mass."""
+
+  @property
+  def initial_frames_problem(self):
+    return "gym_discrete_problem_with_agent_on_pixel_control"
+
+  @property
+  def num_testing_steps(self):
+    return 100
+
+
+@registry.register_problem
+class GymSimulatedDiscreteProblemWithAgentOnPixelControlAutoencoded(
+    GymSimulatedDiscreteProblemAutoencoded, GymPixelControlRandom):
+  """GymSimulatedDiscreteProblemWithAgentOnPixelControlAutoencoded."""
+
+  @property
+  def initial_frames_problem(self):
+    return "gym_discrete_problem_with_agent_on_pixel_control_autoencoded"
+
+  @property
+  def num_testing_steps(self):
+    return 100
+
+####################################################333
+
+@registry.register_problem
 class GymVideoNumbersRandom(GymDiscreteProblem):
   """Gym Video Numbers"""
 
@@ -132,7 +200,6 @@ class GymDiscreteProblemWithAgentOnVideoNumbersAutoencoded(
 @registry.register_problem
 class GymSimulatedDiscreteProblemWithAgentOnVideoNumbers(
     GymSimulatedDiscreteProblem, GymVideoNumbersRandom):
-  """Simulated pong."""
 
   @property
   def initial_frames_problem(self):
@@ -156,9 +223,6 @@ class GymSimulatedDiscreteProblemWithAgentOnVideoNumbersAutoencoded(
   def num_testing_steps(self):
     return 100
 
-
-
-###################################################3
 
 @registry.register_problem
 class GymWrappedFullPongRandom(GymDiscreteProblem):

@@ -61,6 +61,14 @@ def next_frame_pixel_noise():
 
 
 @registry.register_hparams
+def next_frame_low_lr():
+  """Basic 2-frame conv model with pixel noise."""
+  hparams = next_frame_basic_deterministic()
+  hparams.learning_rate = 0.02
+  return hparams
+
+
+@registry.register_hparams
 def next_frame_tpu():
   hparams = next_frame_basic_deterministic()
   hparams.batch_size = 1
