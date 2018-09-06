@@ -21,7 +21,7 @@ import numpy as np
 
 
 # pylint: disable=method-hidden
-import VideoNumbersEnv
+import debug_envs
 import pixel_control
 import point_mass
 
@@ -117,12 +117,25 @@ gym.envs.register(id="T2TPixelControl-v1",
                   entry_point=lambda: pixel_control.PixelControl(),
                   max_episode_steps=200)
 
+gym.envs.register(id="T2TActionBackground-v1",
+                  entry_point=lambda: debug_envs.ActionBackground(),
+                  max_episode_steps=200)
+
+
+gym.envs.register(id="T2TPixelControlSimple-v1",
+                  entry_point=lambda: pixel_control.PixelControlSimple(),
+                  max_episode_steps=200)
+
 gym.envs.register(id="T2TPointMassFO_Size32_DiscreateReward-v1",
                   entry_point=lambda: point_mass.PointMassFO(img_size=16, discreate_reward=True),
                   max_episode_steps=200)
 
 gym.envs.register(id="T2TVideoNumbers-v1",
-                  entry_point=lambda: VideoNumbersEnv.VideoNumbersEnv(),
+                  entry_point=lambda: debug_envs.VideoNumbersEnv(),
+                  max_episode_steps=200)
+
+gym.envs.register(id="T2TVideoNumbersWithActions-v1",
+                  entry_point=lambda: debug_envs.VideoNumbersWithActions(),
                   max_episode_steps=200)
 
 

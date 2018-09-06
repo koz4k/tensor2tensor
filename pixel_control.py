@@ -3,7 +3,7 @@ from itertools import product
 
 import gym
 import numpy as np
-from PIL import Image, ImageDraw, ImageColor
+from PIL import Image, ImageDraw, ImageColor, ImageFont
 from gym.spaces.box import Box
 from scipy import ndimage
 
@@ -83,13 +83,13 @@ class PixelControl:
 
 		proposed_poss = self.state['agent_possition'].copy()
 		if action == 0:
-			proposed_poss[0] += 1  # move right
+			proposed_poss[1] += 1  # move right
 		elif action == 1:
-			proposed_poss[1] -= 1  # move up
+			proposed_poss[0] -= 1  # move up
 		elif action == 2:
-			proposed_poss[0] -= 1  # move left
+			proposed_poss[1] -= 1  # move left
 		elif action == 3:
-			proposed_poss[1] += 1  # move down
+			proposed_poss[0] += 1  # move down
 
 		# If move is possible, move the agent
 
@@ -164,7 +164,95 @@ class PixelControl:
 		return ob
 
 
+class PixelControlSimple:
+
+	def __init__(self, seed=None, area_size=12, move_len=2, agent_size=4):
+		self._agent_RGB = np.array([0, 0, 255])
+		self._move_RGB = np.array([255, 0, 0])
+		self.img_size = area_size
+		self.move_len = move_len
+		self.agent_size = agent_size
+		self.state = dict()
+		self.area_size = area_size
+		self.seed(seed)
+		self.metadata = None
+		self.unwrapped = self
+
+		self.reward_range = (-np.inf, np.inf)
+		self.action_space = gym.spaces.discrete.Discrete(4)
+		ob = self.reset()
+		self.observation_space = Box(0, 255, ob.shape, dtype=np.uint8)
+
+	def seed(self, seed):
+		self.rng = np.random.RandomState(seed)
+
+	def step(self, action):
+		"""
+		Move in one of 4 directions
+		"""
+		assert self.action_space.contains(action), 'action {} is not in action space {}'.format(action,
+																								self.action_space)
+		if self.done:
+			reward = 0
+			obs = self.give_ob()
+			info = dict(state=deepcopy(self.state))
+			return obs, reward, self.done, info
+
+		if action == 0:
+			self.state['agent_possition'][1] += self.move_len  # move right
+		elif action == 1:
+			self.state['agent_possition'][0] -= self.move_len  # move up
+		elif action == 2:
+			self.state['agent_possition'][1] -= self.move_len  # move left
+		elif action == 3:
+			self.state['agent_possition'][0] += self.move_len  # move down
+
+		self.state['last_action'] = action
+
+		if (self.state['agent_possition'] > self.area_size - self.agent_size).any() or \
+				(self.state['agent_possition'] < 0).any():
+			self.done = True
+
+		reward = 0
+		info = dict(state=deepcopy(self.state))
+		ob = self.give_ob()
+		return ob, reward, self.done, info
+
+	def close(self):
+		return
+
+	def give_ob(self):
+		ob = np.full([self.area_size, self.area_size, 3], 0, dtype=np.uint8)
+		agent = self.state['agent_possition']
+		left_most = max(0, agent[1])
+		right_most = min(self.area_size - 1, agent[1] + self.agent_size - 1)
+		up_most = max(0, agent[0])
+		down_most = min(self.area_size - 1, agent[0] + self.agent_size - 1)
+		action = self.state['last_action']
+		ob[up_most:(down_most+1), left_most:(right_most+1), :] = self._agent_RGB
+		if action == 0:
+			ob[up_most:(down_most+1), right_most] = self._move_RGB  # move right
+		elif action == 1:
+			ob[up_most, left_most:(right_most+1)] = self._move_RGB  # move up
+		elif action == 2:
+			ob[up_most:(down_most+1), left_most] = self._move_RGB  # move left
+		elif action == 3:
+			ob[down_most, left_most:(right_most+1)] = self._move_RGB  # move down
+
+		return ob
+
+	def reset(self):
+		agent_poss = self.rng.randint(1, self.area_size-self.agent_size-1, size=2)
+		self.state = dict(
+			agent_possition=agent_poss,
+			last_action=0,
+		)
+		ob = self.give_ob()
+		self.done = False
+		return ob
+
+
 if __name__ == '__main__':
-	env = PixelControl()
+	env = PixelControlSimple()
 	ob = env.reset()
 	print(ob)

@@ -579,10 +579,68 @@ def rl_modelrl_short_pixel_control():
   hparams.generative_model_params = 'next_frame_low_lr'
   return hparams
 
+
 @registry.register_hparams
-def rl_modelrl_base_pixel_control():
+def rl_modelrl_tiny_action_background():
+  hparams = rl_modelrl_tiny()
+  hparams.game = 'action_background'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_short_action_background():
+  hparams = rl_modelrl_short()
+  hparams.game = 'action_background'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_base_action_background():
   hparams = rl_modelrl_base()
-  hparams.game = 'pixel_control'
+  hparams.game = 'action_background'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+
+@registry.register_hparams
+def rl_modelrl_tiny_pixel_control_simple():
+  hparams = rl_modelrl_tiny()
+  hparams.game = 'pixel_control_simple'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_short_pixel_control_simple():
+  hparams = rl_modelrl_short()
+  hparams.game = 'pixel_control_simple'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_base_pixel_control_simple():
+  hparams = rl_modelrl_base()
+  hparams.game = 'pixel_control_simple'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_tiny_video_numbers_with_actions():
+  hparams = rl_modelrl_tiny()
+  hparams.game = 'video_numbers_with_actions'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_short_video_numbers_with_actions():
+  hparams = rl_modelrl_short()
+  hparams.game = 'video_numbers_with_actions'
+  hparams.generative_model_params = 'next_frame_low_lr'
+  return hparams
+
+@registry.register_hparams
+def rl_modelrl_base_video_numbers_with_actions():
+  hparams = rl_modelrl_base()
+  hparams.game = 'video_numbers_with_actions'
   hparams.generative_model_params = 'next_frame_low_lr'
   return hparams
 
