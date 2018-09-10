@@ -34,7 +34,7 @@ class WarmupWrapper(gym.Wrapper):
     self.warm_up_examples = warm_up_examples
     self.warm_up_action = warmup_action
     self.observation_space = gym.spaces.Box(
-        low=0, high=255, shape=(210, 160, 3), dtype=np.uint8)
+        low=0, high=255, shape=(210, 160, 3), dtype=np.int32)
 
   def get_starting_data(self, num_frames):
     self.reset()
@@ -73,7 +73,7 @@ class PongWrapper(WarmupWrapper):
       self.action_space = gym.spaces.Discrete(2)
     self.warm_up_examples = warm_up_examples
     self.observation_space = gym.spaces.Box(
-        low=0, high=255, shape=(210, 160, 3), dtype=np.uint8)
+        low=0, high=255, shape=(210, 160, 3), dtype=np.int32)
     self.reward_skip_steps = reward_skip_steps
     self.big_ball = big_ball
 
@@ -113,6 +113,19 @@ class PongWrapper(WarmupWrapper):
       return x, y
 
 
+gym.envs.register(id="T2TPixelControl-v1",
+                  entry_point=lambda: pixel_control.PixelControl(),
+                  max_episode_steps=200)
+
+gym.envs.register(id="T2TPointMassFO_Size32_DiscreateReward-v1",
+                  entry_point=lambda: point_mass.PointMassFO(img_size=16, discreate_reward=True),
+                  max_episode_steps=200)
+
+gym.envs.register(id="T2TVideoNumbers-v1",
+                  entry_point=lambda: VideoNumbersEnv.VideoNumbersEnv(),
+                  max_episode_steps=200)
+
+
 def wrapped_pong_factory(warm_up_examples=0, action_space_reduction=False,
                          reward_skip_steps=0, big_ball=False):
   """Wrapped pong games."""
@@ -141,7 +154,7 @@ class BreakoutWrapper(WarmupWrapper):
     self.warm_up_examples = warm_up_examples
     self.observation_space = gym.spaces.Box(low=0, high=255,
                                             shape=(210, 160, 3),
-                                            dtype=np.uint8)
+                                            dtype=np.int32)
     self.ball_down_skip = ball_down_skip
     self.big_ball = big_ball
     self.reward_clipping = reward_clipping

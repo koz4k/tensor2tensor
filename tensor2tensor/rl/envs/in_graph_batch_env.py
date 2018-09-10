@@ -25,6 +25,8 @@ from tensor2tensor.rl.envs import utils
 
 import tensorflow as tf
 
+from tensor2tensor.rl.envs import utils
+
 
 class InGraphBatchEnv(object):
   """Abstract class for batch of environments inside the TensorFlow graph.

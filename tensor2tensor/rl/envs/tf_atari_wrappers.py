@@ -253,6 +253,14 @@ class AutoencoderWrapper(WrapperBase):
     return (ae_height, ae_width, ae_channels)
 
   @property
+  def observ_shape(self):
+    height, width, _ = self._batch_env.observ_shape
+    ae_height = int(math.ceil(height / self.autoencoder_factor))
+    ae_width = int(math.ceil(width / self.autoencoder_factor))
+    ae_channels = 24  # TODO(piotrmilos): make it better
+    return (ae_height, ae_width, ae_channels)
+
+  @property
   def autoencoder_factor(self):
     """By how much to divide sizes when using autoencoders."""
     hparams = autoencoders.autoencoder_discrete_pong()
