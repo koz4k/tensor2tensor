@@ -21,6 +21,7 @@ from __future__ import print_function
 import gym
 
 # We need gym_utils for the game environments defined there.
+import debug_envs
 from tensor2tensor.data_generators import gym_utils  # pylint: disable=unused-import
 # pylint: disable=g-multiple-import
 from tensor2tensor.data_generators.gym_problems import GymDiscreteProblem,\
@@ -283,4 +284,10 @@ create_problems_for_env(
         reward_clipping=True
     ),
     env_register_kwargs={"max_episode_steps": 500}
+)
+
+
+create_problems_for_env(
+    "action_background",
+    entry_point=lambda: debug_envs.ActionBackground(),
 )
