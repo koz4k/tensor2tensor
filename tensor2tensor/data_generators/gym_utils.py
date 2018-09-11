@@ -113,19 +113,6 @@ class PongWrapper(WarmupWrapper):
       return x, y
 
 
-gym.envs.register(id="T2TPixelControl-v1",
-                  entry_point=lambda: pixel_control.PixelControl(),
-                  max_episode_steps=200)
-
-gym.envs.register(id="T2TPointMassFO_Size32_DiscreateReward-v1",
-                  entry_point=lambda: point_mass.PointMassFO(img_size=16, discreate_reward=True),
-                  max_episode_steps=200)
-
-gym.envs.register(id="T2TVideoNumbers-v1",
-                  entry_point=lambda: VideoNumbersEnv.VideoNumbersEnv(),
-                  max_episode_steps=200)
-
-
 def wrapped_pong_factory(warm_up_examples=0, action_space_reduction=False,
                          reward_skip_steps=0, big_ball=False):
   """Wrapped pong games."""

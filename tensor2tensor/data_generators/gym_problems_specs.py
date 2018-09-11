@@ -22,6 +22,7 @@ import gym
 
 # We need gym_utils for the game environments defined there.
 import debug_envs
+import pixel_control
 from tensor2tensor.data_generators import gym_utils  # pylint: disable=unused-import
 # pylint: disable=g-multiple-import
 from tensor2tensor.data_generators.gym_problems import GymDiscreteProblem,\
@@ -290,4 +291,10 @@ create_problems_for_env(
 create_problems_for_env(
     "action_background",
     entry_point=lambda: debug_envs.ActionBackground(),
+)
+
+
+create_problems_for_env(
+    "pixel_control",
+    entry_point=lambda: pixel_control.PixelControl(),
 )
