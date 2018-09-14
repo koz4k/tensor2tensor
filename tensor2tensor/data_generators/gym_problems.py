@@ -23,6 +23,7 @@ import math
 import os
 import gym
 import numpy as np
+from PIL import Image, ImageFont, ImageDraw
 
 from tensor2tensor.data_generators import problem
 from tensor2tensor.data_generators import video_utils
@@ -563,17 +564,6 @@ class GymSimulatedDiscreteProblem(GymDiscreteProblem):
   def collect_statistics_and_generate_debug_image(self, index,
                                                   observation,
                                                   reward, done, action):
-    stat = self.statistics
-
-    # TODO(piotrmilos): possibly make the same behaviour as
-    # in the BasicStatistics
-    stat.sum_of_rewards += reward
-    stat.episode_sim_reward += reward
-
-    ob = np.ndarray.astype(observation, np.int)
-    err = np.ndarray.astype(
-        np.maximum(np.abs(stat.real_ob - ob, dtype=np.int) - 10, 0), np.uint8)
-    debug_im = np.concatenate([observation, stat.real_ob, err], axis=1)
 
     assert (self._internal_memory_size == self.num_testing_steps and
             self._internal_memory_force_beginning_resets), (
@@ -581,18 +571,37 @@ class GymSimulatedDiscreteProblem(GymDiscreteProblem):
                 "mode for the code below to work properly.")
 
     if (index+1) % self._internal_memory_size == 0:
+      self.statistics.number_of_dones += 1
 
-      if stat.episode_sim_reward == stat.episode_real_reward:
-        stat.successful_episode_reward_predictions += 1
-        stat.episode_sim_reward = 0.0
-        stat.episode_real_reward = 0.0
-
-      stat.number_of_dones += 1
-      self._reset_real_env()
-    else:
-      stat.real_ob, real_reward, _, _ = stat.real_env.step(action)
-      stat.episode_real_reward += real_reward
-
+    ob = np.array(observation, dtype=np.int)
+    # Rescale image to have some minimal width. (copy pixels, anti-aliasing etc.
+    # should not be done)
+    min_width = 160
+    scale_factor = min_width / ob.shape[1]
+    if scale_factor > 1.:
+      scale_factor = np.int(np.ceil(scale_factor))
+      new_hw_shape = np.array(ob.shape[:2]) * scale_factor
+      ob = np.array(Image.fromarray(ob).resize(
+          (new_hw_shape[1], new_hw_shape[0]), Image.BOX))
+    # Create image with additional debug information, concatenate it with
+    # observation.
+    # You can add more debug lines below, approx. 12 characters should fit line.
+    debug_text_lines = [
+        'D:{done}  A:{action}  R:{reward}'.format(done=str(done)[0],
+                                                  action=action, reward=reward),
+    ]
+    debug_text = '\n'.join(debug_text_lines)
+    font_size = 20
+    font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+    spacing = 4
+    # This works for "DejaVuSans.ttf", might not work for other fonts.
+    pixels_per_line = font_size + spacing
+    info_im_shape = (pixels_per_line * len(ob), ob.shape[1], ob.shape[2])
+    info_im = Image.fromarray(np.full(info_im_shape, 0, dtype=np.uint8),
+                              mode='RGB')
+    ImageDraw.Draw(info_im).multiline_text(xy=(0, 0), text=debug_text,
+                                           font=font)
+    debug_im = np.concatenate([info_im, ob])
     return debug_im
 
   def restore_networks(self, sess):
