@@ -21,6 +21,9 @@ import numpy as np
 
 
 # pylint: disable=method-hidden
+import pixel_control
+
+
 class WarmupWrapper(gym.Wrapper):
   """Warmup wrapper."""
 
@@ -129,6 +132,9 @@ gym.envs.register(id="T2TPongWarmUp20RewSkip200Steps-v1",
 gym.envs.register(id="T2TPongWarmUp20RewSkipFull-v1",
                   entry_point=lambda: wrapped_pong_factory(  # pylint: disable=g-long-lambda
                       warm_up_examples=20, reward_skip_steps=15))
+
+# gym.envs.register(id="T2TGymPixelControl-v1",
+#                   entry_point=lambda: pixel_control.PixelControl())
 
 
 class BreakoutWrapper(WarmupWrapper):

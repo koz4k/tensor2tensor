@@ -1023,6 +1023,15 @@ def rlmb_short():
   hparams.ppo_epochs_num //= 10
   return hparams
 
+@registry.register_hparams
+def rlmb_ae_short():
+  """Small set for larger testing."""
+  hparams = rlmb_ae_base()
+  hparams.num_real_env_frames //= 5
+  hparams.model_train_steps //= 10
+  hparams.ppo_epochs_num //= 10
+  hparams.autoencoder_train_steps //= 10
+  return hparams
 
 @registry.register_hparams
 def rlmb_model_only():

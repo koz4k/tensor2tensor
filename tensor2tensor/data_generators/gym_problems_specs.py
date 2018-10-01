@@ -98,6 +98,7 @@ ATARI_GAME_MODES = [
 # List of all ATARI envs in all modes.
 ATARI_PROBLEMS = {}
 
+import pixel_control_problems_specs
 
 @registry.register_problem
 class GymWrappedFullPongRandom(GymDiscreteProblem):
