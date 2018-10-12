@@ -184,7 +184,7 @@ class T2TEnv(video_utils.VideoProblem):
     encoded_obs = self._encode_observations(new_obs)
     for (index, ob) in zip(indices, encoded_obs):
       frame = self._current_frames[index]
-      if frame is not None and frame.done:
+      if frame is not None:
         rollout = self._current_rollouts[index]
         rollout.append(frame._replace(action=0))
         self.history.append(rollout)
