@@ -26,6 +26,8 @@ import tensorflow as tf
 from tensor2tensor.rl.envs.simulated_batch_gym_env import FlatBatchEnv, \
   SimulatedBatchGymEnv
 from tensor2tensor.rl.policy_learner import PolicyLearner
+from tensor2tensor.rl.trainer_model_based_params import rlmb_base
+from tensor2tensor.utils import registry
 
 _dopamine_path = None
 try:
@@ -229,12 +231,12 @@ class DQNLearner(PolicyLearner):
 
   def train(
       self, env_fn, hparams, num_env_steps, simulated, save_continuously,
-      epoch
+      epoch, eval_env_fn=None
   ):
 
     if save_continuously:
-      # TODO: checkpoint_env_steps
-      training_steps_per_iteration = hparams.checkpoint_env_steps
+      # TODO: save_every_steps
+      training_steps_per_iteration = hparams.save_every_steps
       num_iterations_to_do = num_env_steps // training_steps_per_iteration
     else:
       num_iterations_to_do = 1
@@ -248,12 +250,12 @@ class DQNLearner(PolicyLearner):
     agent_params['optimizer'] = optimizer
     agent_params.update(replay_buffer_params)
 
-    create_agent = get_create_agent(agent_params)
+    create_agent_fn = get_create_agent(agent_params)
 
     with tf.Graph().as_default():
       runner = run_experiment.Runner(
         game_name="unused_arg", sticky_actions="unused_arg",
-        base_dir=self.agent_model_dir, create_agent_fn=create_agent,
+        base_dir=self.agent_model_dir, create_agent_fn=create_agent_fn,
         create_environment_fn=get_create_env_fun(
             env_fn, time_limit=hparams.time_limit),
         evaluation_steps=0,

@@ -21,11 +21,13 @@ from __future__ import print_function
 
 import six
 
+from tensor2tensor.rl.dopamine_connector import DQNLearner
 from tensor2tensor.rl.ppo_learner import PPOLearner
 
 
 LEARNERS = {
-    "ppo": PPOLearner
+    "ppo": PPOLearner,
+    "dqn": DQNLearner,
 }
 
 

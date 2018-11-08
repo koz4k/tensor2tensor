@@ -123,6 +123,71 @@ def rlmb_base():
 
 
 @registry.register_hparams
+def dqn_tmp_params():
+  # These params are based on agents/dqn/configs/dqn.gin
+  # with some modifications taking into account our code
+  return tf.contrib.training.HParams(
+      agent_gamma=0.99,
+      agent_update_horizon=1,
+      agent_min_replay_history=20000,  # agent steps
+      agent_update_period=4,
+      agent_target_update_period=8000,  # agent steps
+      agent_epsilon_train=0.01,
+      agent_epsilon_eval=0.001,
+      agent_epsilon_decay_period=250000,  # agent steps
+      agent_generates_trainable_dones=True,
+
+      optimizer_class="RMSProp",
+      optimizer_learning_rate=0.00025,
+      optimizer_decay=0.95,
+      optimizer_momentum=0.0,
+      optimizer_epsilon=0.00001,
+      optimizer_centered=True,
+
+      # runner_training_steps=250000,  # agent steps
+      # TODO(KC): this is unused, remove it?
+      runner_max_steps_per_episode=27000,  # agent steps
+
+      replay_buffer_replay_capacity=1000000,
+      replay_buffer_batch_size=32,
+      time_limit=27000,
+      save_every_steps=10000,
+  )
+
+
+@registry.register_hparams
+def rlmb_dqn_base():
+  """Tiny set for testing."""
+  hparams = rlmb_base().override_from_dict(
+      tf.contrib.training.HParams(
+        base_algo="dqn",
+        base_algo_params="dqn_tmp_params",
+      ).values())
+  hparams.add_hparam('dqn_time_limit', 10)
+  # Ignore 'artificial' simulated episode ends when learning Q-value.
+  hparams.add_hparam('dqn_agent_generates_trainable_dones', False)
+  return hparams
+
+
+@registry.register_hparams
+def rlmb_dqn_tiny():
+  """Tiny set for testing."""
+  hparams = rlmb_dqn_base().override_from_dict(dict(
+      epochs=1,
+      num_real_env_frames=128,
+      model_train_steps=2,
+      generative_model_params="next_frame_tiny",
+      stop_loop_early=True,
+      # simulated_dqn_training_steps=128,
+      # env_timesteps_limit=6,
+      num_simulated_env_frames_per_epoch=128,
+  ))
+  hparams.add_hparam('real_dqn_agent_min_replay_history', 10)
+  hparams.add_hparam('dqn_agent_min_replay_history', 10)
+  return hparams
+
+
+@registry.register_hparams
 def rlmb_basetest():
   """Base setting but quicker with only 2 epochs."""
   hparams = rlmb_base()
