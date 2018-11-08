@@ -45,6 +45,7 @@ HP_SCOPES = ["loop", "model", "ppo"]
 
 @registry.register_hparams
 def rlmb_base():
+  # TODO(konradczechowski): split to _rlmb_base, rlmb_ppo_base, rlmb_dqn_base
   return tf.contrib.training.HParams(
       epochs=15,
       # Total frames used for training. This will be distributed evenly across
@@ -123,7 +124,7 @@ def rlmb_base():
 
 
 @registry.register_hparams
-def dqn_tmp_params():
+def dqn_atari_base():
   # These params are based on agents/dqn/configs/dqn.gin
   # with some modifications taking into account our code
   return tf.contrib.training.HParams(
@@ -156,10 +157,10 @@ def rlmb_dqn_base():
   """Tiny set for testing."""
   hparams = rlmb_base().override_from_dict(
       tf.contrib.training.HParams(
-        base_algo="dqn",
-        base_algo_params="dqn_tmp_params",
-        eval_batch_size=1,
-        simulated_batch_size=1,
+          base_algo="dqn",
+          base_algo_params="dqn_atari_base",
+          eval_batch_size=1,
+          simulated_batch_size=1,
       ).values())
   # Length of simulated trajectories TODO(konradczechowski): remove this when
   # there would be common parameter for this.
@@ -172,13 +173,14 @@ def rlmb_dqn_base():
 @registry.register_hparams
 def rlmb_dqn_tiny():
   """Tiny set for testing."""
+  # TODO(konradczechowski) introduce tiny, algorith-agnostic parameters
   hparams = rlmb_dqn_base().override_from_dict(dict(
       epochs=1,
-      num_real_env_frames=128,
+      num_real_env_frames=256,
       model_train_steps=2,
       generative_model_params="next_frame_tiny",
+      eval_max_num_noops=1,
       stop_loop_early=True,
-      # simulated_dqn_training_steps=128,
       env_timesteps_limit=6,
       num_simulated_env_frames_per_epoch=128,
       wm_eval_rollout_ratios=[1],

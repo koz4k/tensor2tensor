@@ -27,11 +27,8 @@ import inspect
 import os
 import tensorflow as tf
 
-from tensor2tensor.rl.envs.simulated_batch_gym_env import FlatBatchEnv, \
-  SimulatedBatchGymEnv
+from tensor2tensor.rl.envs.simulated_batch_gym_env import FlatBatchEnv
 from tensor2tensor.rl.policy_learner import PolicyLearner
-from tensor2tensor.rl.trainer_model_based_params import rlmb_base
-from tensor2tensor.utils import registry
 
 _dopamine_path = None
 try:
@@ -252,31 +249,31 @@ class DQNLearner(PolicyLearner):
     agent_params.update(replay_buffer_params)
     create_agent_fn = get_create_agent(agent_params)
     runner = run_experiment.Runner(
-      game_name="unused_arg", sticky_actions="unused_arg",
-      base_dir=self.agent_model_dir, create_agent_fn=create_agent_fn,
-      create_environment_fn=get_create_env_fun(
-        env_fn, time_limit=hparams.time_limit),
-      evaluation_steps=0,
-      num_iterations=target_iterations,
-      training_steps=training_steps_per_iteration,
-      **runner_params
-      )
+        game_name="unused_arg", sticky_actions="unused_arg",
+        base_dir=self.agent_model_dir, create_agent_fn=create_agent_fn,
+        create_environment_fn=get_create_env_fun(
+            env_fn, time_limit=hparams.time_limit),
+        evaluation_steps=0,
+        num_iterations=target_iterations,
+        training_steps=training_steps_per_iteration,
+        **runner_params
+    )
     return runner
 
   def train(
       self, env_fn, hparams, num_env_steps, simulated, save_continuously,
-      epoch, eval_env_fn=None
+      epoch, eval_env_fn=None, report_fn=None
   ):
     # TODO(konradczechowski): evaluation during training (with eval_env_fun)
-    del epoch, eval_env_fn, simulated
+    del epoch, eval_env_fn, simulated, report_fn
     target_iterations, training_steps_per_iteration = \
       self._target_iteractions_and_steps(
-        hparams=hparams, num_env_steps=num_env_steps,
-        save_continuously=save_continuously)
+          hparams=hparams, num_env_steps=num_env_steps,
+          save_continuously=save_continuously)
 
     with tf.Graph().as_default():
       runner = self.create_runner(env_fn, hparams, target_iterations,
-                                       training_steps_per_iteration)
+                                  training_steps_per_iteration)
       runner.run_experiment()
 
     self.completed_iterations = target_iterations
