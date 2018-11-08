@@ -144,14 +144,10 @@ def dqn_tmp_params():
       optimizer_epsilon=0.00001,
       optimizer_centered=True,
 
-      # runner_training_steps=250000,  # agent steps
-      # TODO(KC): this is unused, remove it?
-      runner_max_steps_per_episode=27000,  # agent steps
-
       replay_buffer_replay_capacity=1000000,
       replay_buffer_batch_size=32,
       time_limit=27000,
-      save_every_steps=10000,
+      save_every_steps=50000,
   )
 
 
@@ -162,7 +158,11 @@ def rlmb_dqn_base():
       tf.contrib.training.HParams(
         base_algo="dqn",
         base_algo_params="dqn_tmp_params",
+        eval_batch_size=1,
+        simulated_batch_size=1,
       ).values())
+  # Length of simulated trajectories TODO(konradczechowski): remove this when
+  # there would be common parameter for this.
   hparams.add_hparam('dqn_time_limit', 10)
   # Ignore 'artificial' simulated episode ends when learning Q-value.
   hparams.add_hparam('dqn_agent_generates_trainable_dones', False)
@@ -179,8 +179,9 @@ def rlmb_dqn_tiny():
       generative_model_params="next_frame_tiny",
       stop_loop_early=True,
       # simulated_dqn_training_steps=128,
-      # env_timesteps_limit=6,
+      env_timesteps_limit=6,
       num_simulated_env_frames_per_epoch=128,
+      wm_eval_rollout_ratios=[1],
   ))
   hparams.add_hparam('real_dqn_agent_min_replay_history', 10)
   hparams.add_hparam('dqn_agent_min_replay_history', 10)

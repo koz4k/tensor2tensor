@@ -15,6 +15,10 @@
 
 """Connects dopamine to as the another rl traning framework."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import gym
 from gym import spaces, Wrapper
 from gym.wrappers import TimeLimit
@@ -115,9 +119,8 @@ class _DQNAgent(dqn_agent.DQNAgent):
         artificial_done=not self._generates_trainable_dones,
         **replay_buffer_kwargs)
 
-    # TODO(KC) pass use_staging
     return circular_replay_buffer.WrappedReplayBuffer(
-        wrapped_memory=replay_memory, use_staging=False,
+        wrapped_memory=replay_memory, use_staging=use_staging,
         **replay_buffer_kwargs)
 
 
@@ -220,28 +223,26 @@ def _get_optimizer(params):
 
 
 class DQNLearner(PolicyLearner):
-  """ Interface for learning dqn implemented in dopamine.
-
-  Agent keeps training progress in iterations.
-  """
-  def __init__(self, frame_stack_size, event_dir, agent_model_dir):
-    super(DQNLearner, self).__init__(frame_stack_size, event_dir,
+  """ Interface for learning dqn implemented in dopamine."""
+  def __init__(self, frame_stack_size, base_event_dir, agent_model_dir):
+    super(DQNLearner, self).__init__(frame_stack_size, base_event_dir,
                                      agent_model_dir)
     self.completed_iterations = 0
 
-  def train(
-      self, env_fn, hparams, num_env_steps, simulated, save_continuously,
-      epoch, eval_env_fn=None
-  ):
-
+  def _target_iteractions_and_steps(self, hparams, num_env_steps,
+                                    save_continuously):
     if save_continuously:
-      # TODO: save_every_steps
-      training_steps_per_iteration = hparams.save_every_steps
+      training_steps_per_iteration = min(num_env_steps,
+                                         hparams.save_every_steps)
       num_iterations_to_do = num_env_steps // training_steps_per_iteration
     else:
       num_iterations_to_do = 1
       training_steps_per_iteration = num_env_steps
     target_iterations = self.completed_iterations + num_iterations_to_do
+    return target_iterations, training_steps_per_iteration
+
+  def create_runner(self, env_fn, hparams, target_iterations,
+                    training_steps_per_iteration):
     # pylint: disable=unbalanced-tuple-unpacking
     agent_params, optimizer_params, \
     runner_params, replay_buffer_params = _parse_hparams(hparams)
@@ -249,54 +250,62 @@ class DQNLearner(PolicyLearner):
     optimizer = _get_optimizer(optimizer_params)
     agent_params['optimizer'] = optimizer
     agent_params.update(replay_buffer_params)
-
     create_agent_fn = get_create_agent(agent_params)
+    runner = run_experiment.Runner(
+      game_name="unused_arg", sticky_actions="unused_arg",
+      base_dir=self.agent_model_dir, create_agent_fn=create_agent_fn,
+      create_environment_fn=get_create_env_fun(
+        env_fn, time_limit=hparams.time_limit),
+      evaluation_steps=0,
+      num_iterations=target_iterations,
+      training_steps=training_steps_per_iteration,
+      **runner_params
+      )
+    return runner
+
+  def train(
+      self, env_fn, hparams, num_env_steps, simulated, save_continuously,
+      epoch, eval_env_fn=None
+  ):
+    # TODO(konradczechowski): evaluation during training (with eval_env_fun)
+    del epoch, eval_env_fn, simulated
+    target_iterations, training_steps_per_iteration = \
+      self._target_iteractions_and_steps(
+        hparams=hparams, num_env_steps=num_env_steps,
+        save_continuously=save_continuously)
 
     with tf.Graph().as_default():
-      runner = run_experiment.Runner(
-        game_name="unused_arg", sticky_actions="unused_arg",
-        base_dir=self.agent_model_dir, create_agent_fn=create_agent_fn,
-        create_environment_fn=get_create_env_fun(
-            env_fn, time_limit=hparams.time_limit),
-        evaluation_steps=0,
-        num_iterations=target_iterations,
-        training_steps=training_steps_per_iteration,
-        **runner_params
-      )
-
+      runner = self.create_runner(env_fn, hparams, target_iterations,
+                                       training_steps_per_iteration)
       runner.run_experiment()
+
     self.completed_iterations = target_iterations
 
   def evaluate(self, env_fn, hparams, stochastic):
-    raise NotImplementedError()
+    target_iterations = 0
+    training_steps_per_iteration = 0
+    if not stochastic:
+      hparams.set_hparam('agent_epsilon_eval', 0.)
 
+    create_environment_fn = get_create_env_fun(env_fn,
+                                               time_limit=hparams.time_limit)
+    env = create_environment_fn(game_name="unused_arg",
+                                sticky_actions="unused_arg")
 
-def dopamine_trainer(hparams, model_dir):
-  assert _dopamine_path is not None, "Dopamine not available. Please install " \
-                                     "from " \
-                                     "https://github.com/google/dopamine and " \
-                                     "add to PYTHONPATH"
+    with tf.Graph().as_default():
+      runner = self.create_runner(env_fn, hparams, target_iterations,
+                                  training_steps_per_iteration)
+      agent = runner._agent
+      del runner
+      agent.eval = True
 
-  # pylint: disable=unbalanced-tuple-unpacking
-  agent_params, optimizer_params, \
-  runner_params, replay_buffer_params = _parse_hparams(hparams)
-  # pylint: enable=unbalanced-tuple-unpacking
-  optimizer = _get_optimizer(optimizer_params)
-  agent_params['optimizer'] = optimizer
-  agent_params.update(replay_buffer_params)
-
-  create_agent = get_create_agent(agent_params)
-
-  with tf.Graph().as_default():
-    runner = run_experiment.Runner(
-        game_name="unused_arg", sticky_actions="unused_arg",
-        base_dir=model_dir, create_agent_fn=create_agent,
-        create_environment_fn=get_create_env_fun(hparams.environment_spec,
-                                                 hparams.get('world_model_dir',
-                                                             None),
-                                                 time_limit=hparams.time_limit),
-        evaluation_steps=0,
-        **runner_params
-    )
-
-    runner.run_experiment()
+      # TODO(konradczechowski): correct number of episodes, when this will
+      # be hparam
+      for _ in range(30):
+        # Run single episode
+        ob = env.reset()
+        action = agent.begin_episode(ob)
+        done = False
+        while not done:
+          ob, reward, done, _ = env.step(action)
+          action = agent.step(reward, ob)
