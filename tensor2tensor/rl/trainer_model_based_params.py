@@ -161,6 +161,8 @@ def rlmb_dqn_base():
           base_algo_params="dqn_atari_base",
           eval_batch_size=1,
           simulated_batch_size=1,
+          # TODO(konradczechowski): make it work
+          eval_world_model=False,
       ).values())
   # Length of simulated trajectories TODO(konradczechowski): remove this when
   # there would be common parameter for this.
