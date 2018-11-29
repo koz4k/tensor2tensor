@@ -122,9 +122,9 @@ def evaluate_single_config(hparams, stochastic, max_num_noops, agent_model_dir):
   )
 
 
-def get_metric_name(stochastic, max_num_noops, clipped):
-  return "mean_reward/eval/stochastic_{}_max_noops_{}_{}".format(
-      stochastic, max_num_noops, "clipped" if clipped else "unclipped")
+def get_metric_name(x, stochastic, max_num_noops, clipped):
+  return "{}_reward/eval/stochastic_{}_max_noops_{}_{}".format(
+      x, stochastic, max_num_noops, "clipped" if clipped else "unclipped")
 
 
 def evaluate_all_configs(hparams, agent_model_dir):
@@ -138,9 +138,11 @@ def evaluate_all_configs(hparams, agent_model_dir):
         hparams, True, max_num_noops, agent_model_dir
     )
     for (score, clipped) in zip(scores, (True, False)):
-      metric_name = get_metric_name(True, max_num_noops, clipped)
+      metric_name = get_metric_name("mean", True, max_num_noops, clipped)
+      metrics[metric_name] = score[0]
+      metric_name = get_metric_name("std", True, max_num_noops, clipped)
+      metrics[metric_name] = score[1]
       tf.logging.info("Score for %s: %s", metric_name, str(score))
-      metrics[metric_name] = score
 
   return metrics
 
@@ -162,6 +164,15 @@ def compute_mean_reward(rollouts, clipped):
   return (mean_rewards, std_rewards)
 
 
+def summarize_metrics(eval_metrics_writer, metrics, epoch):
+  """Write metrics to summary."""
+  for (name, value) in six.iteritems(metrics):
+    summary = tf.Summary()
+    summary.value.add(tag=name, simple_value=value)
+    eval_metrics_writer.add_summary(summary, epoch)
+  eval_metrics_writer.flush()
+
+
 def train(hparams, output_dir, report_fn=None):
   hparams = initialize_env_specs(hparams)
   learner = LEARNERS[hparams.base_algo](
@@ -171,12 +182,14 @@ def train(hparams, output_dir, report_fn=None):
   update_hparams_from_hparams(
       policy_hparams, hparams, hparams.base_algo + "_"
   )
+  eval_metrics_writer = tf.summary.FileWriter("eval_metrics")
   if hparams.env_fn is not None:
     learner.train(
         hparams.env_fn, policy_hparams, simulated=False, save_continuously=True,
         epoch=0, eval_env_fn=hparams.eval_env_fn, report_fn=report_fn
     )
   eval_metrics = evaluate_all_configs(hparams, output_dir)
+  summarize_metrics(eval_metrics_writer, eval_metrics, 0)
   tf.logging.info(
       "Agent eval metrics:\n{}".format(pprint.pformat(eval_metrics))
   )
