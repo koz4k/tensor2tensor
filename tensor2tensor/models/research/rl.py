@@ -83,7 +83,7 @@ def ppo_discrete_action_base():
 
 @registry.register_hparams
 def discrete_random_action_base():
-  hparams = common_hparams.basic_params1()
+  hparams = ppo_base_v1()
   hparams.add_hparam("policy_network", random_policy_fun)
   return hparams
 
@@ -225,7 +225,22 @@ def mfrl_original():
       batch_size=16,
       eval_batch_size=2,
       frame_stack_size=4,
+      resize_height_factor=2,
+      resize_width_factor=2,
+      grayscale=False,
+      env_timesteps_limit=-1,  # Use default from gym.make()
+      max_num_noops=8,
+      eval_max_num_noops=8,
   )
+
+
+@registry.register_hparams
+def mfrl_random_eval():
+  hparams = mfrl_original()
+  hparams.base_algo_params = "discrete_random_action_base"
+  hparams.batch_size = 0
+  hparams.eval_batch_size = 30
+  return hparams
 
 
 @registry.register_hparams
@@ -409,6 +424,8 @@ def random_policy_fun(action_space, unused_config, observations):
   """Random policy with categorical output."""
   obs_shape = observations.shape.as_list()
   with tf.variable_scope("network_parameters"):
+    # Just so Saver doesn't complain because of no variables.
+    tf.get_variable("dummy_var", ())
     value = tf.zeros(obs_shape[:2])
     policy = tfp.distributions.Categorical(
         probs=[[[1. / float(action_space.n)] * action_space.n] *

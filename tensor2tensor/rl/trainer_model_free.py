@@ -27,6 +27,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import pprint
+
+import numpy as np
 import six
 
 from tensor2tensor.data_generators import gym_env
@@ -53,6 +56,24 @@ LEARNERS = {
 }
 
 
+def setup_env(hparams, batch_size, max_num_noops):
+  """Setup."""
+  game_mode = "Deterministic-v4"
+  camel_game_name = "".join(
+      [w[0].upper() + w[1:] for w in hparams.game.split("_")])
+  camel_game_name += game_mode
+  env_name = camel_game_name
+
+  env = gym_env.T2TGymEnv(base_env_name=env_name,
+                          batch_size=batch_size,
+                          grayscale=hparams.grayscale,
+                          resize_width_factor=hparams.resize_width_factor,
+                          resize_height_factor=hparams.resize_height_factor,
+                          base_env_timesteps_limit=hparams.env_timesteps_limit,
+                          max_num_noops=max_num_noops)
+  return env
+
+
 def update_hparams_from_hparams(target_hparams, source_hparams, prefix):
   """Copy a subset of hparams to target_hparams."""
   for (param_name, param_value) in six.iteritems(source_hparams.values()):
@@ -64,10 +85,15 @@ def initialize_env_specs(hparams):
   """Initializes env_specs using T2TGymEnvs."""
   if getattr(hparams, "game", None):
     game_name = gym_env.camel_case_name(hparams.game)
-    env = gym_env.T2TGymEnv("{}Deterministic-v4".format(game_name),
-                            batch_size=hparams.batch_size)
-    env.start_new_epoch(0)
-    hparams.add_hparam("env_fn", rl.make_real_env_fn(env))
+    if hparams.batch_size > 0:
+      env = gym_env.T2TGymEnv("{}Deterministic-v4".format(game_name),
+                              batch_size=hparams.batch_size)
+      env.start_new_epoch(0)
+      train_env_fn = rl.make_real_env_fn(env)
+    else:
+      train_env_fn = None
+    hparams.add_hparam("env_fn", train_env_fn)
+
     eval_env = gym_env.T2TGymEnv("{}Deterministic-v4".format(game_name),
                                  batch_size=hparams.eval_batch_size)
     eval_env.start_new_epoch(0)
@@ -75,19 +101,87 @@ def initialize_env_specs(hparams):
   return hparams
 
 
+def evaluate_single_config(hparams, stochastic, max_num_noops, agent_model_dir):
+  """Evaluate the PPO agent in the real environment."""
+  eval_hparams = trainer_lib.create_hparams(hparams.base_algo_params)
+  env = setup_env(
+      hparams, batch_size=hparams.eval_batch_size, max_num_noops=max_num_noops
+  )
+  env.start_new_epoch(0)
+  env_fn = rl.make_real_env_fn(env)
+  learner = LEARNERS[hparams.base_algo](
+      hparams.frame_stack_size, base_event_dir=None,
+      agent_model_dir=agent_model_dir
+  )
+  learner.evaluate(env_fn, eval_hparams, stochastic)
+  rollouts = env.current_epoch_rollouts()
+  env.close()
+
+  return tuple(
+      compute_mean_reward(rollouts, clipped) for clipped in (True, False)
+  )
+
+
+def get_metric_name(stochastic, max_num_noops, clipped):
+  return "mean_reward/eval/stochastic_{}_max_noops_{}_{}".format(
+      stochastic, max_num_noops, "clipped" if clipped else "unclipped")
+
+
+def evaluate_all_configs(hparams, agent_model_dir):
+  """Evaluate the agent with multiple eval configurations."""
+  metrics = {}
+  # Iterate over all combinations of picking actions by sampling/mode and
+  # whether to do initial no-ops.
+  #for stochastic in (True, False):
+  for max_num_noops in (hparams.eval_max_num_noops, 0):
+    scores = evaluate_single_config(
+        hparams, True, max_num_noops, agent_model_dir
+    )
+    for (score, clipped) in zip(scores, (True, False)):
+      metric_name = get_metric_name(True, max_num_noops, clipped)
+      tf.logging.info("Score for %s: %s", metric_name, str(score))
+      metrics[metric_name] = score
+
+  return metrics
+
+
+def compute_mean_reward(rollouts, clipped):
+  """Calculate mean rewards from given epoch."""
+  reward_name = "reward" if clipped else "unclipped_reward"
+  rewards = []
+  for rollout in rollouts:
+    if rollout[-1].done:
+      rollout_reward = sum(getattr(frame, reward_name) for frame in rollout)
+      rewards.append(rollout_reward)
+  if rewards:
+    mean_rewards = np.mean(rewards)
+    std_rewards = np.std(rewards)
+  else:
+    mean_rewards = 0
+    std_rewards = 0
+  return (mean_rewards, std_rewards)
+
+
 def train(hparams, output_dir, report_fn=None):
   hparams = initialize_env_specs(hparams)
   learner = LEARNERS[hparams.base_algo](
-      hparams.frame_stack_size, FLAGS.output_dir, output_dir
+      hparams.frame_stack_size, output_dir, output_dir
   )
   policy_hparams = trainer_lib.create_hparams(hparams.base_algo_params)
   update_hparams_from_hparams(
       policy_hparams, hparams, hparams.base_algo + "_"
   )
-  learner.train(
-      hparams.env_fn, policy_hparams, simulated=False, save_continuously=True,
-      epoch=0, eval_env_fn=hparams.eval_env_fn, report_fn=report_fn
+  if hparams.env_fn is not None:
+    learner.train(
+        hparams.env_fn, policy_hparams, simulated=False, save_continuously=True,
+        epoch=0, eval_env_fn=hparams.eval_env_fn, report_fn=report_fn
+    )
+  eval_metrics = evaluate_all_configs(hparams, output_dir)
+  tf.logging.info(
+      "Agent eval metrics:\n{}".format(pprint.pformat(eval_metrics))
   )
+  with open("metrics", "w") as f:
+    f.write(str(eval_metrics))
 
 
 def main(_):
@@ -96,4 +190,5 @@ def main(_):
 
 
 if __name__ == "__main__":
+  tf.logging.set_verbosity(tf.logging.INFO)
   tf.app.run()
