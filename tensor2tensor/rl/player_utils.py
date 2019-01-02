@@ -132,12 +132,18 @@ class SimulatedEnv(Env):
     hparams = deepcopy(hparams)
     self._output_dir = output_dir
 
+    data_dir = join_and_check(join_and_check(output_dir, "data"), "data")
+    if which_epoch_data is not None:
+      if which_epoch_data == "last":
+        which_epoch_data = last_epoch(data_dir)
+      assert isinstance(which_epoch_data, int), \
+          "{}".format(type(which_epoch_data))
     self.t2t_env = load_t2t_env(hparams,
-                                data_dir=join_and_check(output_dir, "data"),
+                                data_dir=data_dir,
                                 which_epoch_data=which_epoch_data)
 
     self.env = make_simulated_env(
-        self.t2t_env, world_model_dir=join_and_check(output_dir, "world_model"),
+        self.t2t_env, world_model_dir=join_and_check(join_and_check(output_dir, "world_model"), "model_epoch_{}".format(which_epoch_data)),
         hparams=hparams, random_starts=random_starts)
 
   def step(self, *args, **kwargs):
