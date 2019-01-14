@@ -82,8 +82,10 @@ def _rlmb_base():
       real_sampling_temp=1.0,
 
       # Sampling temperatures to try during eval.
-      eval_sampling_temps=[0.5, 0.0, 1.0],
-      eval_max_num_noops=8,
+      #eval_sampling_temps=[0.5, 0.0, 1.0],
+      eval_sampling_temps=[1.0],
+      #eval_max_num_noops=8,
+      eval_max_num_noops=0,
       # To speed up the pipeline. Some games want to run forever.
       eval_rl_env_max_episode_steps=1000,
 
