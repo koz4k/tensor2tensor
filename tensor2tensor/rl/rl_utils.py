@@ -263,6 +263,8 @@ def run_rollouts(
     log_every_steps=None, video_writer=None
 ):
   """Runs a batch of rollouts from given initial observations."""
+  if video_writer is not None:
+    print('video_writer is set')
   num_dones = 0
   first_dones = [False] * env.batch_size
   observations = initial_observations
@@ -444,6 +446,7 @@ class PlannerAgent(BatchAgent):
 
     def run_batch_from(observation, action, planner_index, batch_index):
       """Run a batch of actions."""
+      print("action {}".format(action))
       self._wrapped_env.set_initial_state(
           initial_state=[
               copy.deepcopy(env_state[planner_index])
@@ -468,6 +471,11 @@ class PlannerAgent(BatchAgent):
           initial_rewards + self._discount_factor * cum_rewards +
           self._discount_factor ** (self._planning_horizon + 1) * values
       )
+      print("action {} rollout scores: {} = {} + {} * {} + {} * {}".format(
+          action, total_values.mean(), initial_rewards.mean(), self._discount_factor,
+          cum_rewards.mean(), self._discount_factor ** (self._planning_horizon + 1),
+          values.mean()
+      ))
       return total_values.mean()
 
     def run_batches_from(observation, action, planner_index):

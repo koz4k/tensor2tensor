@@ -204,6 +204,7 @@ def evaluate(
       report_fn(eval_metrics[metric_name], 0)
     else:
       report_fn(eval_metrics[report_metric], 0)
+  print(eval_metrics)
   return eval_metrics
 
 
