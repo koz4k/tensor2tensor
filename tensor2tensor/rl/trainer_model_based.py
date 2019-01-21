@@ -219,16 +219,17 @@ def train_world_model(
   if restarter.should_skip:
     return world_model_steps_num
   with restarter.training_loop():
-    train_supervised(
-        problem=env,
-        model_name=hparams.generative_model,
-        hparams=model_hparams,
-        data_dir=data_dir,
-        output_dir=output_dir,
-        train_steps=restarter.target_global_step,
-        eval_steps=100,
-        local_eval_frequency=2000
-    )
+    pass
+    #train_supervised(
+    #    problem=env,
+    #    model_name=hparams.generative_model,
+    #    hparams=model_hparams,
+    #    data_dir=data_dir,
+    #    output_dir=output_dir,
+    #    train_steps=restarter.target_global_step,
+    #    eval_steps=100,
+    #    local_eval_frequency=2000
+    #)
 
   return world_model_steps_num
 
@@ -378,7 +379,7 @@ def load_metrics(event_dir, epoch):
   return metrics
 
 
-def training_loop(hparams, output_dir, report_fn=None, report_metric=None):
+def training_loop(hparams, output_dir, report_fn=None, report_metric=None, world_model_dir=None):
   """Run the main training loop."""
   if report_fn:
     assert report_metric is not None
@@ -389,6 +390,8 @@ def training_loop(hparams, output_dir, report_fn=None, report_metric=None):
       "policy", "eval_metrics"
   ]
   directories = setup_directories(output_dir, subdirectories)
+  if world_model_dir is not None:
+    directories["world_model"] = world_model_dir
 
   epoch = -1
   data_dir = directories["data"]
