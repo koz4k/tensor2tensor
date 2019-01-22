@@ -55,6 +55,10 @@ flags = tf.flags
 FLAGS = flags.FLAGS
 
 
+flags.DEFINE_float("dropout", 0, "")
+flags.DEFINE_string("world_model_dir", "", "")
+
+
 def real_env_step_increment(hparams):
   """Real env step increment."""
   return int(math.ceil(
@@ -164,6 +168,7 @@ def train_agent(real_env, learner, world_model_dir, hparams, epoch):
   rl_utils.update_hparams_from_hparams(
       train_hparams, hparams, base_algo_str + "_"
   )
+  train_hparams.dropout_ppo = FLAGS.dropout
 
   final_epoch = hparams.epochs - 1
   is_special_epoch = (epoch + 3) == final_epoch or (epoch + 7) == final_epoch
@@ -185,6 +190,8 @@ def train_agent_real_env(env, learner, hparams, epoch):
   )
   if hparams.wm_policy_param_sharing:
     train_hparams.optimizer_zero_grads = True
+
+  train_hparams.dropout_ppo = FLAGS.dropout
 
   env_fn = rl.make_real_env_fn(env)
   num_env_steps = real_env_step_increment(hparams)
@@ -511,7 +518,7 @@ def training_loop(hparams, output_dir, report_fn=None, report_metric=None, world
 def main(_):
   hp = trainer_model_based_params.create_loop_hparams()
   assert not FLAGS.job_dir_to_evaluate
-  training_loop(hp, FLAGS.output_dir)
+  training_loop(hp, FLAGS.output_dir, world_model_dir=FLAGS.world_model_dir)
 
 
 if __name__ == "__main__":
