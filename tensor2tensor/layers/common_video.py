@@ -725,15 +725,15 @@ class WholeVideoWriter(VideoWriter):
         "-qscale", "0",
         "-"
     ]
-    self.proc = Popen(
-        self.cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, bufsize=-1
-    )
-    (self._out_thread, self._err_thread) = itertools.starmap(
-        self._start_reader_thread, [
-            (self.proc.stdout, self._out_chunks),
-            (self.proc.stderr, self._err_chunks)
-        ]
-    )
+    #self.proc = Popen(
+    #    self.cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, bufsize=-1
+    #)
+    #(self._out_thread, self._err_thread) = itertools.starmap(
+    #    self._start_reader_thread, [
+    #        (self.proc.stdout, self._out_chunks),
+    #        (self.proc.stderr, self._err_chunks)
+    #    ]
+    #)
 
   def _start_reader_thread(self, stream, chunks):
     """Starts a thread for reading output from FFMPEG.
@@ -757,13 +757,13 @@ class WholeVideoWriter(VideoWriter):
           break
         chunks.append(chunk)
     thread = threading.Thread(target=target)
-    thread.start()
+    #thread.start()
     return thread
 
   def write(self, frame, encoded_frame=None):
     if self.proc is None:
       self.__init_ffmpeg(frame.shape)
-    self.proc.stdin.write(frame.tostring())
+    #self.proc.stdin.write(frame.tostring())
 
   def finish(self):
     """Finishes transconding and returns the video.
@@ -776,18 +776,18 @@ class WholeVideoWriter(VideoWriter):
     """
     if self.proc is None:
       return None
-    self.proc.stdin.close()
-    for thread in (self._out_thread, self._err_thread):
-      thread.join()
-    (out, err) = [
-        b"".join(chunks) for chunks in (self._out_chunks, self._err_chunks)
-    ]
-    if self.proc.returncode:
-      err = "\n".join([" ".join(self.cmd), err.decode("utf8")])
-      raise IOError(err)
-    del self.proc
-    self.proc = None
-    return out
+    #self.proc.stdin.close()
+    #for thread in (self._out_thread, self._err_thread):
+    #  thread.join()
+    #(out, err) = [
+    #    b"".join(chunks) for chunks in (self._out_chunks, self._err_chunks)
+    #]
+    #if self.proc.returncode:
+    #  err = "\n".join([" ".join(self.cmd), err.decode("utf8")])
+    #  raise IOError(err)
+    #del self.proc
+    #self.proc = None
+    #return out
 
   def save_to_disk(self, output):
     if self.output_path is None:
@@ -795,8 +795,8 @@ class WholeVideoWriter(VideoWriter):
           "This writer doesn't support saving to disk (output_path not "
           "specified)."
       )
-    with tf.gfile.Open(self.output_path, "w") as f:
-      f.write(output)
+    #with tf.gfile.Open(self.output_path, "w") as f:
+    #  f.write(output)
 
 
 class BatchWholeVideoWriter(VideoWriter):
