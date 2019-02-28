@@ -111,6 +111,8 @@ def _rlmb_base():
       # uses algorithm specific hparams to set this during training.
       simulated_rollout_length=50,
 
+      wm_policy_param_sharing=False,
+
       # To be overridden.
       base_algo="",
       base_algo_params="",
@@ -144,7 +146,6 @@ def rlmb_ppo_base():
       # Number of simulated environments to train on simultaneously.
       simulated_batch_size=16,
       eval_batch_size=32,
-      wm_policy_param_sharing=False,
 
       # Unused; number of PPO epochs is calculated from the real frame limit.
       real_ppo_epochs_num=0,

@@ -34,6 +34,10 @@ from tensor2tensor.rl.envs.simulated_batch_gym_env import FlatBatchEnv
 from tensor2tensor.rl.policy_learner import PolicyLearner
 import tensorflow as tf
 
+import dopamine
+print("\n\n\n {} \n\n\n".format(dopamine))
+from dopamine.discrete_domains import run_experiment
+
 # pylint: disable=g-import-not-at-top
 try:
   import cv2
@@ -205,7 +209,7 @@ def get_create_agent(agent_kwargs):
 def get_create_env_fun(batch_env_fn, time_limit):
   """TODO(konradczechowski): Add doc-string."""
 
-  def create_env_fun(game_name, sticky_actions=True):
+  def create_env_fun(game_name=None, sticky_actions=None):
     del game_name, sticky_actions
     batch_env = batch_env_fn(in_graph=False)
     env = FlatBatchEnv(batch_env)
@@ -242,9 +246,10 @@ def _get_optimizer(params):
 class DQNLearner(PolicyLearner):
   """Interface for learning dqn implemented in dopamine."""
 
-  def __init__(self, frame_stack_size, base_event_dir, agent_model_dir):
+  def __init__(self, frame_stack_size, base_event_dir, agent_model_dir,
+               total_num_epochs):
     super(DQNLearner, self).__init__(frame_stack_size, base_event_dir,
-                                     agent_model_dir)
+                                     agent_model_dir, total_num_epochs)
     self.completed_iterations = 0
 
   def _target_iteractions_and_steps(self, num_env_steps, save_continuously,
