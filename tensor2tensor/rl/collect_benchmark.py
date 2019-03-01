@@ -39,6 +39,9 @@ from time import time
 FLAGS = tf.flags.FLAGS
 
 tf.flags.DEFINE_bool("use_tpu", False, "Whether to use TPU.")
+tf.flags.DEFINE_integer("batch_size", 16, "Batch size.")
+tf.flags.DEFINE_integer("epoch_length", 50, "Epoch length.")
+tf.flags.DEFINE_integer("num_tpus", 8, "Number of TPUs.")
 
 BATCH_SIZES = [16, 32, 64, 128]
 EPOCH_LENGTHS = [50, 100, 200]
@@ -51,17 +54,13 @@ TPU_NAME = "ng-tpu-01"
 
 
 
-def run_config(sess, topology, num_tpus, batch_size, epoch_length):
+def run_config(num_tpus, batch_size, epoch_length):
+  if FLAGS.use_tpu:
+    target = TPUClusterResolver(tpu=[TPU_NAME]).get_master()
+  else:
+    target = ""
   if FLAGS.use_tpu:
     batch_size //= num_tpus
-
-  with tf.variable_scope("model", reuse=tf.AUTO_REUSE):
-    batch_env = tf_new_collect.NewSimulatedBatchEnv(
-        batch_size,
-        "next_frame_basic_stochastic_discrete",
-        trainer_lib.create_hparams("next_frame_basic_stochastic_discrete_long")
-    )
-    batch_env = tf_new_collect.NewStackWrapper(batch_env, HISTORY)
 
   ppo_hparams = trainer_lib.create_hparams("ppo_original_params")
   ppo_hparams.policy_network = "feed_forward_cnn_small_categorical_policy"
@@ -70,22 +69,35 @@ def run_config(sess, topology, num_tpus, batch_size, epoch_length):
   with tf.variable_scope(
       "collect_{}_{}_{}".format(num_tpus, batch_size, epoch_length)
   ):
+    batch_env = tf_new_collect.NewSimulatedBatchEnv(
+        batch_size,
+        "next_frame_basic_stochastic_discrete",
+        trainer_lib.create_hparams("next_frame_basic_stochastic_discrete_long")
+    )
+    batch_env = tf_new_collect.NewStackWrapper(batch_env, HISTORY)
     memory = tf_new_collect.new_define_collect(
         batch_env, ppo_hparams, action_space, force_beginning_resets=True
     )
-  if FLAGS.use_tpu:
-    memory = tpu.replicate(
-        lambda: memory,
-        inputs=([()] * num_tpus),
-        device_assignment=tf.contrib.tpu.device_assignment(
-            topology, num_replicas=num_tpus
-        )
-    )
-  sess.run(tf.global_variables_initializer())
-  # First trial is for warmup.
-  sess.run(memory)
-  t = time()
-  sess.run(memory)
+  with tf.Session(target) as sess:
+    if FLAGS.use_tpu:
+      topology = sess.run(tpu.initialize_system())
+      memory = tpu.replicate(
+          lambda: memory,
+          inputs=([()] * num_tpus),
+          device_assignment=tf.contrib.tpu.device_assignment(
+              topology, num_replicas=num_tpus
+          )
+      )
+
+    sess.run(tf.global_variables_initializer())
+    # First trial is for warmup.
+    sess.run(memory)
+    t = time()
+    sess.run(memory)
+
+    if FLAGS.use_tpu:
+      sess.run(tpu.shutdown_system())
+
   return time() - t
 
 
@@ -106,25 +118,8 @@ def run_configs(run_fn, **ranges):
 
 
 def main(_):
-  if FLAGS.use_tpu:
-    target = TPUClusterResolver(tpu=[TPU_NAME]).get_master()
-  else:
-    target = ""
-  with tf.Session(target) as sess:
-    if FLAGS.use_tpu:
-      topology = sess.run(tpu.initialize_system())
-
-    results = run_configs(
-        functools.partial(run_config, sess, topology),
-        batch_size=BATCH_SIZES,
-        epoch_length=EPOCH_LENGTHS,
-        num_tpus=NUMS_TPUS,
-    )
-    with open("results.pkl", "wb") as f:
-      f.write(results)
-
-    if FLAGS.use_tpu:
-      sess.run(tpu.shutdown_system())
+    t = run_config(FLAGS.num_tpus, FLAGS.batch_size, FLAGS.epoch_length)
+    print(">>>>> time:", t)
 
 
 if __name__ == "__main__":
