@@ -20,6 +20,7 @@ from __future__ import print_function
 
 from collections import namedtuple
 import copy
+import itertools
 
 from tensor2tensor.data_generators.gym_env import DummyWorldModelProblem
 from tensor2tensor.layers import common_layers
@@ -45,12 +46,28 @@ PPOData = namedtuple(
 )
 
 
-def init_tensor_structure(spec):
+def init_tensors(spec):
   # spec is either TensorSpec or a tuple of specs.
+  # TODO: Recognize namedtuples.
   try:
     return tf.zeros(spec.shape, spec.dtype)
   except AttributeError:
-    return tuple(map(init_tensor_structure, spec))
+    return tuple(map(init_tensors, spec))
+
+
+def flatten_tensors(structure):
+  # structure is either tf.Tensor or a tuple of structures.
+  if tf.contrib.framework.is_tensor(structure):
+    return tf.reshape(structure, (-1,))
+  else:
+    return tuple(map(flatten_tensors, structure))
+
+
+def restore_tensors(structure, spec):
+  if tf.contrib.framework.is_tensor(structure):
+    return tf.reshape(structure, spec.shape)
+  else:
+    return tuple(itertools.starmap(restore_tensors, zip(structure, spec)))
 
 
 class NewInGraphBatchEnv(object):
@@ -134,13 +151,12 @@ class NewSimulatedBatchEnv(NewInGraphBatchEnv):
         shape=(self.batch_size,)
     ) - 1
 
-    return ((new_history,), ob, reward)
+    return (new_history, ob, reward)
 
   def reset(self):
     specs = self.tensor_specs
     return tuple(map(
-        init_tensor_structure,
-        (specs.hidden_state, specs.observation)
+        init_tensors, (specs.hidden_state, specs.observation)
     ))
 
 
@@ -182,16 +198,17 @@ class NewStackWrapper(NewInGraphBatchEnv):
   def reset(self):
     specs = self.tensor_specs
     return tuple(map(
-        init_tensor_structure,
-        (specs.hidden_state, specs.observation)
+        init_tensors, (specs.hidden_state, specs.observation)
     ))
 
 
 def new_define_collect(batch_env, hparams, action_space):
   batch_size = batch_env.batch_size
   env_tensor_specs = batch_env.tensor_specs
+  observation_spec = env_tensor_specs.observation
+  hidden_state_spec = env_tensor_specs.hidden_state
   ppo_tensor_specs = PPOData(
-      observation=env_tensor_specs.observation,
+      observation=observation_spec,
       reward=TensorSpec(shape=(batch_size,), dtype=tf.float32),
       done=TensorSpec(shape=(batch_size,), dtype=tf.bool),
       action=env_tensor_specs.action,
@@ -200,47 +217,31 @@ def new_define_collect(batch_env, hparams, action_space):
   )
 
   # These are only for typing, values will be discarded
-  initial_ppo_batch = PPOData(*init_tensor_structure(ppo_tensor_specs))
+  initial_ppo_batch = PPOData(*init_tensors(ppo_tensor_specs))
 
-  (hidden_state, observation) = batch_env.reset()
-  # TODO: Abstract this out.
-  hidden_state = [
-      tf.reshape(element, (-1,)) for element in hidden_state
-  ]
-  observation = tf.reshape(observation, (-1,))
+  (hidden_state, observation) = flatten_tensors(batch_env.reset())
   initial_running_state = (hidden_state, observation)
   initial_ppo_batch = initial_ppo_batch._replace(observation=observation)
 
-  initial_batch = initial_running_state + (initial_ppo_batch,)
+  initial_batch = (initial_running_state, initial_ppo_batch)
 
   def execution_wrapper(hidden_state, observation):
-    # TODO: Abstract this out.
-    hidden_state = [
-        tf.reshape(element, spec.shape)
-        for (element, spec) in zip(
-            hidden_state, env_tensor_specs.hidden_state
-        )
-    ]
-    observation = tf.reshape(observation, env_tensor_specs.observation.shape)
+    (hidden_state, observation) = restore_tensors(
+        (hidden_state, observation), (hidden_state_spec, observation_spec)
+    )
 
     (logits, value) = get_policy(observation, hparams, action_space)
     action = common_layers.sample_with_temperature(logits, 1)
     action = tf.cast(action, tf.int32)
     pdf = tfp.distributions.Categorical(logits=logits).prob(action)
 
-    hidden_state, new_observation, reward = batch_env.step(
+    (hidden_state, new_observation, reward) = batch_env.step(
         hidden_state, action
     )
 
-    # TODO: This too.
-    hidden_state = [tf.reshape(x, (-1,)) for x in hidden_state]
-    (new_observation, observation) = (
-        tf.reshape(x, (-1,)) for x in (new_observation, observation)
-    )
     done = tf.zeros((batch_size,), dtype=tf.bool)
-
-    return (
-        hidden_state, new_observation,
+    (running_state, ppo_data) = flatten_tensors((
+        (hidden_state, new_observation),
         PPOData(
             observation=observation,
             reward=reward,
@@ -249,14 +250,15 @@ def new_define_collect(batch_env, hparams, action_space):
             pdf=pdf,
             value=value
         )
-    )
+    ))
+    return (running_state, PPOData(*ppo_data))
 
   # TODO: Replace with while and filling an array manually. Otherwise we have to
   # reshape the accumulator in each iteration so it can fit in an output array
-  # which we discard anyway (we only keep ret[3]). Can gain up to 12%
+  # which we discard anyway (we only keep ppo_data). Can gain up to 12%
   # performance by doing so.
-  (_, _, ppo_data) = tf.scan(
-      lambda running_state, _: execution_wrapper(*running_state[:2]),
+  (_, ppo_data) = tf.scan(
+      lambda running_state, _: execution_wrapper(*running_state[0]),
       tf.range(hparams.epoch_length), initial_batch
   )
 
