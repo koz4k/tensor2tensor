@@ -601,6 +601,7 @@ def rlmb_dqn_tiny():
   hparams = rlmb_dqn_base()
   hparams = hparams.override_from_dict(_rlmb_tiny_overrides())
   update_hparams(hparams, dict(
+      base_algo_params="dqn_guess1_params",
       simulated_rollout_length=2,
       dqn_time_limit=2,
       dqn_num_frames=128,
